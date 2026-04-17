@@ -1,18 +1,19 @@
-import {getNativeNllbTranslator} from '../native/NativeNllbTranslator';
 import {OnDeviceTranslator, TranslationCancelledError} from './OnDeviceTranslator';
 
-const mockNativeTranslator = {
-  initialize: jest.fn(),
-  isLoaded: jest.fn(() => Promise.resolve(true)),
-  unload: jest.fn(() => Promise.resolve()),
-  translate: jest.fn(),
-};
+// Create a mock translation service
+const mockTranslate = jest.fn();
+const mockInitialize = jest.fn().mockResolvedValue(true);
+const mockUnload = jest.fn().mockResolvedValue(undefined);
+const mockIsAvailable = jest.fn().mockResolvedValue(true);
 
-jest.mock('../native/NativeNllbTranslator', () => ({
-  getNativeNllbTranslator: () => mockNativeTranslator,
+jest.mock('./TranslationService', () => ({
+  translationService: {
+    initialize: mockInitialize,
+    translate: mockTranslate,
+    unload: mockUnload,
+    isAvailable: mockIsAvailable,
+  },
 }));
-
-const nativeTranslator = getNativeNllbTranslator()!;
 
 describe('OnDeviceTranslator', () => {
   beforeEach(() => {
@@ -25,38 +26,36 @@ describe('OnDeviceTranslator', () => {
 
   it('rejects queued requests when pending work is cancelled', async () => {
     const translator = new OnDeviceTranslator();
-    let releaseActive: ((value: string) => void) | undefined;
+    let releaseActive: ((value: {text: string; latencyMs: number}) => void) | undefined;
 
-    jest.mocked(nativeTranslator.translate)
-      .mockImplementationOnce(
-        () => new Promise((resolve) => {
-          releaseActive = resolve;
-        }),
-      )
-      .mockResolvedValueOnce('queued result');
+    mockTranslate.mockImplementationOnce(
+      () => new Promise<{text: string; latencyMs: number}>((resolve) => {
+        releaseActive = resolve;
+      }),
+    ).mockResolvedValueOnce({text: 'queued result', latencyMs: 10});
 
-    const activePromise = translator.translate({text: 'active', sourceLanguage: 'eng_Latn'});
+    const activePromise = translator.translate({text: 'active', sourceLanguage: 'en'});
     await flushMicrotasks();
-    const queuedPromise = translator.translate({text: 'queued', sourceLanguage: 'eng_Latn'});
+    const queuedPromise = translator.translate({text: 'queued', sourceLanguage: 'en'});
     const queuedResult = queuedPromise.catch((error: unknown) => error);
 
     translator.cancelPending();
-    releaseActive?.('active result');
+    releaseActive?.({text: 'active result', latencyMs: 10});
 
     await expect(activePromise).resolves.toEqual({text: 'active result', version: 1});
     await expect(queuedResult).resolves.toBeInstanceOf(TranslationCancelledError);
   });
 
-  it('cancels queued work before unloading the native translator', async () => {
+  it('cancels queued work before unloading the translator', async () => {
     const translator = new OnDeviceTranslator();
     (translator as unknown as {active: boolean}).active = true;
-    const queuedPromise = translator.translate({text: 'queued', sourceLanguage: 'eng_Latn'});
+    const queuedPromise = translator.translate({text: 'queued', sourceLanguage: 'en'});
     const queuedResult = queuedPromise.catch((error: unknown) => error);
 
     translator.unload();
 
     await expect(queuedResult).resolves.toBeInstanceOf(TranslationCancelledError);
-    expect(nativeTranslator.unload).toHaveBeenCalledTimes(1);
-    expect(nativeTranslator.translate).not.toHaveBeenCalled();
+    expect(mockUnload).toHaveBeenCalledTimes(1);
+    expect(mockTranslate).not.toHaveBeenCalled();
   });
 });

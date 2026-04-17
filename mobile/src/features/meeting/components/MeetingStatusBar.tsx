@@ -212,6 +212,7 @@ export function MeetingStatusBar({
 
   const isRecording = sessionStatus === 'recording';
   const canStop = isRecording && onStopMeeting;
+  const isCompactLive = isRecording;
 
   const getStatusText = (): string => {
     if (sessionStatus === 'idle') return 'Ready';
@@ -223,10 +224,15 @@ export function MeetingStatusBar({
   };
 
   return (
-    <View style={[styles.container, {backgroundColor: theme.colors.surface.primary}]}>
-      <View style={styles.topRow}>
+    <View
+      style={[
+        styles.container,
+        isCompactLive && styles.containerCompact,
+        {backgroundColor: theme.colors.surface.primary},
+      ]}>
+      <View style={[styles.topRow, isCompactLive && styles.topRowCompact]}>
         {/* Left: Pulsing dot + status + timer */}
-        <View style={styles.leftSection}>
+        <View style={[styles.leftSection, isCompactLive && styles.leftSectionCompact]}>
           <PulsingDot isRecording={isRecording} reducedMotion={reducedMotion} />
           <Text
             style={[
@@ -259,7 +265,7 @@ export function MeetingStatusBar({
         </View>
       </View>
 
-      {!!(pipelineStatus || pipelineError) && (
+      {!isCompactLive && !!(pipelineStatus || pipelineError) && (
         <Text
           style={[
             styles.pipelineText,
@@ -268,12 +274,12 @@ export function MeetingStatusBar({
           {pipelineError ?? pipelineStatus}
         </Text>
       )}
-      {latencyMs != null && (
+      {!isCompactLive && latencyMs != null && (
         <Text style={[styles.metaText, {color: theme.colors.text.tertiary}]}> 
           {`${latencyMs}ms`}
         </Text>
       )}
-      {developerMode && speakerDebug ? (
+      {!isCompactLive && developerMode && speakerDebug ? (
         <Text style={[styles.metaText, styles.speakerDebugText, {color: theme.colors.text.tertiary}]}> 
           {`SPK ${speakerDebug}`}
         </Text>
@@ -288,33 +294,46 @@ export function MeetingStatusBar({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    marginBottom: 16,
-    minHeight: 60,
-    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    marginBottom: 10,
+    minHeight: 52,
+    gap: 6,
+  },
+  containerCompact: {
+    paddingVertical: 6,
+    minHeight: 44,
+    gap: 0,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+  },
+  topRowCompact: {
+    gap: 8,
   },
   leftSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flexShrink: 1,
     minWidth: 0,
     flexWrap: 'wrap',
   },
+  leftSectionCompact: {
+    flex: 1,
+    flexWrap: 'nowrap',
+    gap: 5,
+  },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     flexShrink: 0,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   recordingIndicator: {
     width: 8,
@@ -322,38 +341,38 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   recordingLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   timerPill: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: 'monospace',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     overflow: 'hidden',
     flexShrink: 0,
   },
   languageBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 7,
     flexShrink: 0,
   },
   languageText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   pipelineText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '500',
   },
   metaText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '500',
   },
   speakerDebugText: {
@@ -363,10 +382,10 @@ const styles = StyleSheet.create({
   connectivityBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 8,
+    gap: 4,
+    paddingHorizontal: 7,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 9,
   },
   connectivityDot: {
     width: 5,
@@ -374,14 +393,14 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   connectivityText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   stopButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },

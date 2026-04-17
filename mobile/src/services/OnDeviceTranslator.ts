@@ -1,44 +1,29 @@
-import {TargetLanguage} from '../shared/types';
-import {getNativeNllbTranslator} from '../native/NativeNllbTranslator';
+import {SourceLanguage, TargetLanguage} from '../shared/types';
+import {translationService} from './TranslationService';
 import {AppState, NativeEventSubscription, Platform} from 'react-native';
+import {useSettingsStore} from '../shared/store/settingsStore';
 
-export type TranslationSourceLanguage = 'eng_Latn' | 'jpn_Jpan' | 'kor_Hang' | 'zho_Hans';
-export type TranslationTargetLanguage = 'eng_Latn' | 'vie_Latn' | 'zho_Hans' | 'kor_Hang' | 'jpn_Jpan';
+export type TranslationSourceLanguage = 'en' | 'ja' | 'ko' | 'zh';
 
-export function mapSourceLanguageToNllb(source: 'en' | 'ja' | 'ko' | 'zh'): TranslationSourceLanguage {
+export function mapSourceLanguageToNllb(source: SourceLanguage): TranslationSourceLanguage {
   switch (source) {
     case 'en':
-      return 'eng_Latn';
+      return 'en';
     case 'ja':
-      return 'jpn_Jpan';
+      return 'ja';
     case 'ko':
-      return 'kor_Hang';
+      return 'ko';
     case 'zh':
     default:
-      return 'zho_Hans';
-  }
-}
-
-export function mapTargetLanguageToNllb(target: TargetLanguage): TranslationTargetLanguage {
-  switch (target) {
-    case 'en':
-      return 'eng_Latn';
-    case 'zh':
-      return 'zho_Hans';
-    case 'ko':
-      return 'kor_Hang';
-    case 'ja':
-      return 'jpn_Jpan';
-    case 'vi':
-    default:
-      return 'vie_Latn';
+      return 'zh';
   }
 }
 
 export interface TranslationRequest {
   text: string;
   sourceLanguage: TranslationSourceLanguage;
-  targetLanguage?: TranslationTargetLanguage;
+  // targetLanguage is ignored - translationService always translates to VI
+  targetLanguage?: TargetLanguage;
   requestId?: number;
 }
 
@@ -51,14 +36,14 @@ export class TranslationCancelledError extends Error {
 
 export class TranslationUnavailableError extends Error {
   constructor() {
-    super('Native NLLB translator module is unavailable');
+    super('Native translator module is unavailable');
     this.name = 'TranslationUnavailableError';
   }
 }
 
 export class TranslationSuppressedForMemoryError extends Error {
   constructor() {
-    super('Translation temporarily disabled after iOS memory warning');
+    super('Translation temporarily disabled after memory warning');
     this.name = 'TranslationSuppressedForMemoryError';
   }
 }
@@ -67,14 +52,6 @@ export function isTranslationCancelledError(error: unknown): error is Translatio
   return error instanceof TranslationCancelledError || (
     error instanceof Error && error.name === 'TranslationCancelledError'
   );
-}
-
-function requireTranslator() {
-  const nativeModule = getNativeNllbTranslator();
-  if (!nativeModule) {
-    throw new TranslationUnavailableError();
-  }
-  return nativeModule;
 }
 
 type QueuedTranslation = {
@@ -87,7 +64,7 @@ export class OnDeviceTranslator {
   private versionCounter = 0;
   private pending: QueuedTranslation | null = null;
   private active = false;
-  private loadedModelDir: string | null = null;
+  private initialized = false;
   private pendingInit: Promise<boolean> | null = null;
   private warmedUp = false;
   private pendingWarmUp: Promise<boolean> | null = null;
@@ -102,8 +79,6 @@ export class OnDeviceTranslator {
             this.memoryPressureSuppressedUntil = Date.now() + OnDeviceTranslator.IOS_MEMORY_PRESSURE_COOLDOWN_MS;
             if (this.active) {
               this.deferredUnloadRequested = true;
-            } else {
-              this.unload().catch(() => undefined);
             }
           })
         : null;
@@ -129,28 +104,27 @@ export class OnDeviceTranslator {
     }
   }
 
-  async initialize(modelDir: string): Promise<boolean> {
+  async initialize(_modelDir: string): Promise<boolean> {
     this.refreshMemoryPressureSuppression();
     if (this.memoryPressureSuppressedUntil !== 0) {
       return false;
     }
-    const ok = await requireTranslator().initialize(modelDir);
+    const ok = await translationService.initialize();
     if (ok) {
-      this.loadedModelDir = modelDir;
+      this.initialized = true;
     }
     return ok;
   }
 
   /**
-   * Idempotent, race-safe load. Splash and Meeting call this concurrently; we
-   * memoize the in-flight native initialize() promise so only one load happens.
+   * Idempotent, race-safe load.
    */
-  ensureLoaded(modelDir: string): Promise<boolean> {
+  ensureLoaded(_modelDir: string): Promise<boolean> {
     this.refreshMemoryPressureSuppression();
     if (this.memoryPressureSuppressedUntil !== 0) {
       return Promise.resolve(false);
     }
-    if (this.loadedModelDir === modelDir) {
+    if (this.initialized) {
       return Promise.resolve(true);
     }
     if (this.pendingInit) {
@@ -158,13 +132,9 @@ export class OnDeviceTranslator {
     }
     const task = (async () => {
       try {
-        const nativeLoaded = await this.isLoaded().catch(() => false);
-        if (nativeLoaded && this.loadedModelDir === modelDir) {
-          return true;
-        }
-        const ok = await requireTranslator().initialize(modelDir);
+        const ok = await translationService.initialize();
         if (ok) {
-          this.loadedModelDir = modelDir;
+          this.initialized = true;
         }
         return ok;
       } finally {
@@ -176,29 +146,18 @@ export class OnDeviceTranslator {
   }
 
   async isLoaded(): Promise<boolean> {
-    const nativeModule = getNativeNllbTranslator();
-    if (!nativeModule) {
-      return false;
-    }
-    return nativeModule.isLoaded();
+    return this.initialized;
   }
 
   /**
-   * True while a translate() call is currently executing on the native side.
-   * Draft callers use this to skip enqueueing another NLLB run while the
-   * previous one is still grinding — native NLLB has no cancellation token,
-   * so queued drafts would otherwise serialise and pile up (a 10s utterance
-   * with partials every 300ms + 800ms/call NLLB = ~13s of cumulative work).
+   * True while a translate() call is currently executing.
    */
   isTranslating(): boolean {
     return this.active;
   }
 
   /**
-   * True once warmUp() has completed at least once. Callers that can afford to
-   * skip their work (e.g. draft translations) should gate on this — otherwise
-   * the very first draft pays the decoder_model lazy-load (~several seconds)
-   * and every subsequent partial piles up behind the hard gate.
+   * True once warmUp() has completed at least once.
    */
   isWarmedUp(): boolean {
     return this.warmedUp;
@@ -223,15 +182,11 @@ export class OnDeviceTranslator {
   async unload(): Promise<void> {
     this.cancelPending();
     this.deferredUnloadRequested = false;
-    this.loadedModelDir = null;
+    this.initialized = false;
     this.pendingInit = null;
     this.warmedUp = false;
     this.pendingWarmUp = null;
-    const nativeModule = getNativeNllbTranslator();
-    if (!nativeModule) {
-      return;
-    }
-    await nativeModule.unload();
+    await translationService.unload();
   }
 
   async waitForIdle(timeoutMs: number): Promise<boolean> {
@@ -246,22 +201,17 @@ export class OnDeviceTranslator {
   }
 
   /**
-   * Idempotent warm-up. Native iOS lazy-loads the decoder_model ONNX session on
-   * the first translate() call (~multi-second cold start) — see
-   * ios/NllbTranslatorHelper.swift:177. Calling this once during splash forces
-   * that load (and the ONNX kernel JIT) to happen off the user's critical path,
-   * so the first in-meeting translation is fast.
+   * Idempotent warm-up. Platform-native translation (Apple Translation / Opus-MT)
+   * loads instantly, so warmup just verifies initialization.
    */
   warmUp(): Promise<boolean> {
     if (this.warmedUp) return Promise.resolve(true);
     if (this.pendingWarmUp) return this.pendingWarmUp;
     const task = (async () => {
       try {
-        const nativeModule = getNativeNllbTranslator();
-        if (!nativeModule) return false;
-        await nativeModule.translate('Hello', 'eng_Latn', 'vie_Latn');
-        this.warmedUp = true;
-        return true;
+        const ok = await translationService.initialize();
+        this.warmedUp = ok;
+        return ok;
       } catch {
         return false;
       } finally {
@@ -278,6 +228,10 @@ export class OnDeviceTranslator {
       throw new TranslationSuppressedForMemoryError();
     }
     const version = request.requestId ?? ++this.versionCounter;
+
+    // Get target language from settings store
+    const targetLang = useSettingsStore.getState().targetLanguage;
+
     return new Promise((resolve, reject) => {
       if (this.pending) {
         this.pending.reject(new TranslationCancelledError());
@@ -285,12 +239,12 @@ export class OnDeviceTranslator {
       this.pending = {
         run: async () => {
           try {
-            const translated = await requireTranslator().translate(
+            const translated = await translationService.translate(
               request.text,
-              request.sourceLanguage,
-              request.targetLanguage ?? 'vie_Latn',
+              request.sourceLanguage as SourceLanguage,
+              targetLang,
             );
-            resolve({text: translated, version});
+            resolve({text: translated.text, version});
           } catch (error) {
             reject(error);
           } finally {

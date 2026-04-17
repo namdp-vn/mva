@@ -5,7 +5,7 @@
  * All AI inference runs locally — no network dependency.
  */
 
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -48,9 +48,8 @@ type SettingsNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'
 
 // Bundled model info (sizes are fixed for bundled models)
 const SENSEVOICE_SIZE_MB = 234;
-const NLLB_SIZE_MB = 780;
 const DIARIZATION_SIZE_MB = 35;
-const TOTAL_MODELS_SIZE_MB = SENSEVOICE_SIZE_MB + NLLB_SIZE_MB + DIARIZATION_SIZE_MB;
+const TOTAL_MODELS_SIZE_MB = SENSEVOICE_SIZE_MB + DIARIZATION_SIZE_MB;
 
 // Language flag emojis for selector
 const LANGUAGE_FLAGS: Record<string, string> = {
@@ -75,9 +74,27 @@ export function SettingsScreen(): React.JSX.Element {
   const diarizationThreshold = useDiarizationThreshold();
   const {setDiarizationThreshold} = useSettingsStore();
 
-  // Session data size estimation (would be derived from persistence in production)
-  const [sessionDataSizeMB] = useState<number>(0);
+  const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    getPersistenceService()
+      .getStorageSizeBytes()
+      .then((bytes) => {
+        if (mounted) {
+          setSessionDataSizeMB(Math.round(bytes / (1024 * 1024) * 100) / 100);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setSessionDataSizeMB(0);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -159,7 +176,6 @@ export function SettingsScreen(): React.JSX.Element {
   };
 
   const sttStatus = getModelStatusDisplay(modelState.status, modelState.status === 'cached-ready');
-  const nllbStatus = getModelStatusDisplay(translatorModelState.status, translatorModelState.status === 'cached-ready');
 
   const renderModelCard = (
     name: string,
@@ -217,11 +233,15 @@ export function SettingsScreen(): React.JSX.Element {
             () => navigation.navigate('ModelRepository'),
           )}
           {renderModelCard(
-            'NLLB-600M',
-            'Neural machine translation',
-            NLLB_SIZE_MB,
-            nllbStatus,
-            () => navigation.navigate('ModelRepository'),
+            'On-Device Translation',
+            'Apple Translate (iOS) / Opus-MT (Android)',
+            0,
+            translatorModelState.status === 'cached-ready'
+              ? {icon: 'check-circle', color: theme.colors.secondary, label: 'Ready'}
+              : translatorModelState.status === 'missing'
+              ? {icon: 'cloud-off', color: theme.colors.text.tertiary, label: 'Not Available'}
+              : {icon: 'error', color: theme.colors.error, label: 'Unavailable'},
+            undefined,
           )}
           {renderModelCard(
             'Speaker Diarization',
@@ -495,7 +515,7 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.aboutRow}>
               <Text style={[styles.aboutLabel, {color: theme.colors.text.tertiary}]}>AI Models</Text>
-              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}>SenseVoice + NLLB-600M</Text>
+              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}>SenseVoice + On-Device Translation</Text>
             </View>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.aboutRow}>

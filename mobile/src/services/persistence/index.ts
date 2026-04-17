@@ -639,6 +639,35 @@ export function createPersistenceService() {
       }
       return interrupted.length;
     },
+
+    /**
+     * Get total storage size in bytes for all session data.
+     * Includes sessions metadata, utterances, and translations.
+     */
+    getStorageSizeBytes: async (): Promise<number> => {
+      await service.ensureInitialized();
+      let totalBytes = 0;
+
+      // Get sessions data size
+      const sessionsData = JSON.stringify(sessionsCache);
+      totalBytes += sessionsData.length;
+
+      // Get utterances and translations for each session
+      for (const session of sessionsCache) {
+        const utterances = utterancesCache.get(session.id) ?? [];
+        const utterancesData = JSON.stringify(utterances);
+        totalBytes += utterancesData.length;
+
+        // Get translations from cache or storage
+        const translationsKey = TRANSLATIONS_KEY_PREFIX + session.id;
+        const translationsStored = await safeGetItem(translationsKey);
+        if (translationsStored) {
+          totalBytes += translationsStored.length;
+        }
+      }
+
+      return totalBytes;
+    },
   };
 
   return service;

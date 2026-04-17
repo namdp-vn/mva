@@ -18,12 +18,15 @@ import {
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import {useTheme} from '../../../shared/hooks/useTheme';
 import {AppIcon, SpeakerBadge} from '../../../shared/components/ui';
 import {TranscriptEntry} from '../state/meetingStore';
 
 interface TranscriptLaneProps {
+  style?: StyleProp<ViewStyle>;
   entries: TranscriptEntry[];
   partialTranscript: string;
   currentUtteranceId: string | null;
@@ -174,6 +177,7 @@ function EmptyState({isRecording, isOffline}: {isRecording: boolean; isOffline: 
 // =============================================================================
 
 export function TranscriptLane({
+  style,
   entries,
   partialTranscript,
   currentUtteranceId,
@@ -249,7 +253,7 @@ export function TranscriptLane({
 
   return (
     <View
-      style={[styles.container, {backgroundColor: theme.colors.surface.primary}]}
+      style={[styles.container, style, {backgroundColor: theme.colors.surface.primary}]}
       accessibilityLiveRegion="polite">
       {/* Lane Header */}
       <View style={styles.header}>
@@ -323,7 +327,7 @@ export function TranscriptLane({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -334,16 +338,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingLeft: 8,
+    gap: 6,
+    paddingLeft: 6,
     borderLeftWidth: 2,
     flexShrink: 1,
     minWidth: 0,
@@ -354,21 +358,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   headerLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   headerSubtitle: {
-    fontSize: 10,
+    fontSize: 9,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   countText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '500',
   },
   liveIndicator: {
@@ -383,9 +387,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
   },
   liveText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   scrollWrapper: {
@@ -396,56 +400,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 48,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 12,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    gap: 8,
+    padding: 20,
+    gap: 6,
   },
   emptyTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   emptyDescription: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   placeholderSpacer: {
     flex: 1,
   },
   entryContainer: {
-    gap: 6,
+    gap: 4,
   },
   activeEntryContainer: {
     borderLeftWidth: 2,
     borderLeftColor: 'rgba(173, 198, 255, 0.3)',
-    paddingLeft: 12,
+    paddingLeft: 10,
     marginLeft: -2,
   },
   entryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   languageBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 2,
     borderRadius: 4,
   },
   languageText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   timestamp: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'monospace',
   },
   processingIndicator: {
@@ -454,18 +459,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   processingText: {
-    fontSize: 10,
+    fontSize: 9,
     fontStyle: 'italic',
   },
   entryContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 6,
   },
   entryText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 21,
     fontWeight: '500',
   },
   partialIndicator: {

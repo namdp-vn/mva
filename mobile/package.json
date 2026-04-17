@@ -65,14 +65,7 @@
     "type": "modules",
     "jsSrcsDir": "src/native",
     "android": {
-      "javaPackageName": "com.vibevoicenative.nllb"
-    },
-    "ios": {
-      "modules": {
-        "NllbTranslatorModule": {
-          "className": "NllbTranslatorModule"
-        }
-      }
+      "javaPackageName": "com.vibevoicenative"
     }
   }
 }

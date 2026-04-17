@@ -20,7 +20,7 @@ import {StackNavigationProp} from '../../../app/navigation/router';
 import {RootStackParamList} from '../../../app/navigation/router';
 import {AppIcon} from '../../../shared/components/ui';
 import {useTheme} from '../../../shared/hooks/useTheme';
-import {useBootstrapStore, useModelState, useTranslatorModelState} from '../../../shared/store';
+import {useBootstrapStore, useModelState} from '../../../shared/store';
 import {ModelInfo, ModelStatus} from '../../../shared/types';
 import {getSTTProcessorInstance} from '../../../native/stt/STTProcessor';
 import {
@@ -29,7 +29,6 @@ import {
   deleteInstalledModelFiles,
   ensureBundledModelInstalled,
 } from '../../../native/models/BundledModelInstaller';
-import {getOnDeviceTranslator} from '../../../services/OnDeviceTranslator';
 import {getSpeakerEmbeddingService} from '../../../native/speaker/SpeakerEmbeddingService';
 
 type ModelRepositoryNavigationProp = StackNavigationProp<RootStackParamList, 'ModelRepository'>;
@@ -47,16 +46,6 @@ const BUNDLED_MODELS: ModelInfo[] = [
     diskFootprintMB: 234,
     languages: ['EN', 'JA', 'KO', 'ZH'],
     inferenceSpeedRTF: 0.05,
-    isOptimizedFor: ['iPhone 15 Pro'],
-  },
-  {
-    id: 'nllb-600m-mobile',
-    name: 'NLLB-600M',
-    version: '0.1.0-bundled',
-    quality: 'int8',
-    diskFootprintMB: 780,
-    languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
-    inferenceSpeedRTF: 0.4,
     isOptimizedFor: ['iPhone 15 Pro'],
   },
   {
@@ -91,7 +80,6 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
   const {theme} = useTheme();
   const navigation = useNavigation<ModelRepositoryNavigationProp>();
   const modelState = useModelState();
-  const translatorModelState = useTranslatorModelState();
   const {
     setModelDownloading,
     setModelDownloadProgress,
@@ -99,12 +87,6 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
     setModelError,
     setModelDeleting,
     setModelDeleted,
-    setTranslatorModelDownloading,
-    setTranslatorModelDownloadProgress,
-    setTranslatorModelReady,
-    setTranslatorModelError,
-    setTranslatorModelDeleting,
-    setTranslatorModelDeleted,
   } = useBootstrapStore();
 
   const [busyModelId, setBusyModelId] = useState<string | null>(null);
@@ -113,18 +95,15 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
   React.useEffect(() => {
     let mounted = true;
     const load = async () => {
-      const [sttAvailable, nllbAvailable, diarizationAvailable, sttInstalled, nllbInstalled, diarizationInstalled] = await Promise.all([
+      const [sttAvailable, diarizationAvailable, sttInstalled, diarizationInstalled] = await Promise.all([
         areBundledAssetsAvailable('stt'),
-        areBundledAssetsAvailable('nllb'),
         areBundledAssetsAvailable('diarization'),
         areInstalledModelFilesPresent('stt'),
-        areInstalledModelFilesPresent('nllb'),
         areInstalledModelFilesPresent('diarization'),
       ]);
       if (!mounted) return;
       setAssetAvailability({
         'sensevoice-small': sttAvailable && sttInstalled,
-        'nllb-600m-mobile': nllbAvailable && nllbInstalled,
         'speaker-diarization': diarizationAvailable && diarizationInstalled,
       });
     };
@@ -135,24 +114,12 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
   }, []);
 
   const handlePrepare = useCallback(async (model: ModelInfo) => {
-    const isTranslator = model.id === 'nllb-600m-mobile';
     const isDiarization = model.id === 'speaker-diarization';
     const totalBytes = model.diskFootprintMB * 1024 * 1024;
     setBusyModelId(model.id);
 
     try {
-      if (isTranslator) {
-        setTranslatorModelDownloading(model);
-        await ensureBundledModelInstalled('nllb', (completed, total) => {
-          const percentage = Math.round((completed / total) * 100);
-          setTranslatorModelDownloadProgress({
-            bytesDownloaded: Math.round((totalBytes * percentage) / 100),
-            totalBytes,
-            percentage,
-          });
-        });
-        setTranslatorModelReady(model);
-      } else if (isDiarization) {
+      if (isDiarization) {
         await ensureBundledModelInstalled('diarization');
         await getSpeakerEmbeddingService().initialize();
       } else {
@@ -172,16 +139,12 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
       setAssetAvailability((prev) => ({...prev, [model.id]: true}));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bundled model preparation failed.';
-        if (isTranslator) {
-          setTranslatorModelError(message);
-        } else if (!isDiarization) {
-          setModelError(message);
-        }
+      setModelError(message);
       Alert.alert('Preparation failed', message);
     } finally {
       setBusyModelId(null);
     }
-  }, [setModelDownloadProgress, setModelDownloading, setModelError, setModelReady, setTranslatorModelDownloadProgress, setTranslatorModelDownloading, setTranslatorModelError, setTranslatorModelReady]);
+  }, [setModelDownloadProgress, setModelDownloading, setModelError, setModelReady]);
 
   const handleRemove = useCallback((model: ModelInfo) => {
     Alert.alert(
@@ -193,16 +156,10 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-    const isTranslator = model.id === 'nllb-600m-mobile';
-    const isDiarization = model.id === 'speaker-diarization';
+            const isDiarization = model.id === 'speaker-diarization';
             setBusyModelId(model.id);
             try {
-              if (isTranslator) {
-                setTranslatorModelDeleting();
-                await deleteInstalledModelFiles('nllb');
-                await getOnDeviceTranslator().unload();
-                setTranslatorModelDeleted();
-              } else if (isDiarization) {
+              if (isDiarization) {
                 await deleteInstalledModelFiles('diarization');
                 getSpeakerEmbeddingService().release();
               } else {
@@ -215,9 +172,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Unable to remove local model files.';
               Alert.alert('Remove failed', message);
-              if (isTranslator) {
-                setTranslatorModelReady(model);
-              } else if (!isDiarization) {
+              if (!isDiarization) {
                 setModelReady(model);
               }
             } finally {
@@ -227,7 +182,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
         },
       ],
     );
-  }, [setModelDeleted, setModelDeleting, setModelReady, setTranslatorModelDeleted, setTranslatorModelDeleting, setTranslatorModelReady]);
+  }, [setModelDeleted, setModelDeleting, setModelReady]);
 
   const usedStorageMB = useMemo(
     () => BUNDLED_MODELS.reduce((sum, model) => sum + (assetAvailability[model.id] ? model.diskFootprintMB : 0), 0),
@@ -238,11 +193,9 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
 
   const renderCard = (model: ModelInfo) => {
     const diarizationPrepared = assetAvailability[model.id] ?? false;
-    const state = model.id === 'nllb-600m-mobile'
-      ? translatorModelState
-      : model.id === 'speaker-diarization'
-        ? ({status: diarizationPrepared ? 'cached-ready' : 'missing'} as {status: ModelStatus})
-        : modelState;
+    const state = model.id === 'speaker-diarization'
+      ? ({status: diarizationPrepared ? 'cached-ready' : 'missing'} as {status: ModelStatus})
+      : modelState;
     const prepared = assetAvailability[model.id] || state.status === 'cached-ready';
     const statusMeta = getStatusMeta(state.status, theme.colors);
     const canManage = busyModelId == null;

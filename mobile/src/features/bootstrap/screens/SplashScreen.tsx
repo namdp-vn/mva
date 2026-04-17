@@ -1,17 +1,19 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, StyleSheet, Pressable, ActivityIndicator, SafeAreaView} from 'react-native';
+import {View, Text, StyleSheet, Pressable, ActivityIndicator, SafeAreaView, Platform, Alert, Linking} from 'react-native';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {spacing, typography, borderRadius, shadows} from '@shared/constants';
 import {useTheme} from '@shared/hooks/useTheme';
 import {ReadinessStatus, ProgressCard} from '@shared/components/ui';
-import {useBootstrapStore, useModelState, usePrewarmState, useBootstrapOverallStatus} from '@shared/store';
+import {useBootstrapStore, useModelState, usePrewarmState, useBootstrapOverallStatus, useTargetLanguage} from '@shared/store';
 import {ModelInfo} from '@shared/types';
+import {SupportedTargetLanguage} from '@shared/store/settingsStore';
 import type {RootStackParamList} from '../../../app/navigation/router';
 import {getSTTProcessorInstance} from '../../../native/stt/STTProcessor';
 import {warnLog} from '../../../shared/utils/logger';
-import {getOnDeviceTranslator} from '../../../services/OnDeviceTranslator';
-import {areBundledAssetsAvailable, ensureBundledModelInstalled} from '../../../native/models/BundledModelInstaller';
+import {translationService} from '../../../services/TranslationService';
+import {ensureBundledModelInstalled} from '../../../native/models/BundledModelInstaller';
+import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
 
 const MOCK_MODEL: ModelInfo = {
   id: 'sensevoice-small',
@@ -24,18 +26,83 @@ const MOCK_MODEL: ModelInfo = {
   isOptimizedFor: ['iPhone 15 Pro'],
 };
 
-const MOCK_TRANSLATOR_MODEL: ModelInfo = {
-  id: 'nllb-600m-mobile',
-  name: 'NLLB-600M Mobile',
-  version: '0.1.0-alpha',
+const PLATFORM_TRANSLATION_MODEL: ModelInfo = {
+  id: Platform.OS === 'ios' ? 'apple-translation' : 'opus-mt',
+  name: Platform.OS === 'ios' ? 'Apple Translation' : 'Helsinki-NLP Opus-MT',
+  version: '1.0.0',
   quality: 'int8',
-  diskFootprintMB: 780,
+  diskFootprintMB: Platform.OS === 'ios' ? 0 : 100, // iOS uses built-in framework, Android uses ~100MB
   languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
-  inferenceSpeedRTF: 0.4,
+  inferenceSpeedRTF: 0.1,
   isOptimizedFor: ['iPhone 15 Pro'],
 };
 
 type SplashNavigationProp = StackNavigationProp<RootStackParamList, 'Bootstrap'>;
+
+const TARGET_LANGUAGE_LABELS: Record<string, string> = {
+  vi: 'Vietnamese',
+  en: 'English',
+  zh: 'Chinese',
+  ko: 'Korean',
+  ja: 'Japanese',
+};
+
+interface LanguagePackCheck {
+  srcLang: string;
+  displayName: string;
+}
+
+function getLanguagePacksToCheck(targetLang: string): LanguagePackCheck[] {
+  const targetLabel = TARGET_LANGUAGE_LABELS[targetLang] || targetLang;
+  return [
+    {srcLang: 'en', displayName: `English → ${targetLabel}`},
+    {srcLang: 'ja', displayName: `Japanese → ${targetLabel}`},
+    {srcLang: 'ko', displayName: `Korean → ${targetLabel}`},
+    {srcLang: 'zh', displayName: `Chinese → ${targetLabel}`},
+  ];
+}
+
+async function checkLanguagePacksStatus(targetLang: string): Promise<{installed: string[]; missing: string[]; allSupported: boolean}> {
+  const installed: string[] = [];
+  const missing: string[] = [];
+  let allSupported = true;
+
+  if (Platform.OS !== 'ios') {
+    return {installed: [], missing: [], allSupported: true};
+  }
+
+  const nativeModule = getNativeAppleTranslator();
+  if (!nativeModule || typeof nativeModule.getLanguagePackStatus !== 'function') {
+    return {installed: [], missing: [], allSupported: true};
+  }
+
+  const packsToCheck = getLanguagePacksToCheck(targetLang);
+
+  for (const pack of packsToCheck) {
+    try {
+      const status = await nativeModule.getLanguagePackStatus(pack.srcLang, targetLang);
+      if (status === 'installed') {
+        installed.push(pack.displayName);
+      } else if (status === 'available') {
+        missing.push(pack.displayName);
+      } else if (status === 'unsupported') {
+        allSupported = false;
+        missing.push(`${pack.displayName} (not supported)`);
+      } else {
+        missing.push(pack.displayName);
+      }
+    } catch (error) {
+      warnLog(`[SplashScreen] Failed to check ${pack.displayName}:`, error);
+      missing.push(pack.displayName);
+    }
+  }
+
+  return {installed, missing, allSupported};
+}
+
+function openLanguageSettings(): void {
+  Linking.openURL('App-prefs://GENERAL&path=LANGUAGE');
+}
 
 export const SplashScreen: React.FC = () => {
   const navigation = useNavigation<SplashNavigationProp>();
@@ -43,6 +110,7 @@ export const SplashScreen: React.FC = () => {
   const modelState = useModelState();
   const prewarmState = usePrewarmState();
   const overallStatus = useBootstrapOverallStatus();
+  const targetLanguage = useTargetLanguage();
   const {
     setModelDownloading,
     setModelDownloadProgress,
@@ -84,35 +152,67 @@ export const SplashScreen: React.FC = () => {
           setModelReady(MOCK_MODEL); // Still mark ready so we can try transcript-only mode
         }
 
-        // Step 2: Install NLLB translation model (this is the slow part ~5-6s)
-        setTranslatorModelDownloading(MOCK_TRANSLATOR_MODEL);
+        // Step 2: Initialize platform-native translation (Apple Translation on iOS, Opus-MT on Android)
+        // Apple Translation requires language packs to be downloaded on iOS 26+
+        // Android bundles Opus-MT models in app assets
+        setTranslatorModelDownloading(PLATFORM_TRANSLATION_MODEL);
         try {
-          await ensureBundledModelInstalled('nllb', (completed, total) => {
-            setTranslatorModelDownloadProgress({bytesDownloaded: completed, totalBytes: total, percentage: total > 0 ? completed / total : 0});
-          });
+          // Check language packs on iOS
+          if (Platform.OS === 'ios') {
+            const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
+            warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
+
+            if (missing.length > 0) {
+              // Show alert to user asking them to download language packs
+              await new Promise<void>((resolve) => {
+                const message = allSupported
+                  ? `To enable real-time translation to ${TARGET_LANGUAGE_LABELS[targetLanguage] || targetLanguage}, please download the following language packs:\n\n${missing.join('\n')}\n\nGo to Settings → General → Language & Region → Download Languages`
+                  : `Some language pairs are not supported on this device:\n\n${missing.join('\n')}\n\nTranslation will only work for installed languages.`;
+
+                Alert.alert(
+                  'Translation Languages Required',
+                  message,
+                  [
+                    {
+                      text: allSupported ? 'Open Settings' : 'OK',
+                      onPress: () => {
+                        if (allSupported) {
+                          openLanguageSettings();
+                        }
+                        resolve();
+                      },
+                    },
+                    {
+                      text: 'Continue',
+                      onPress: () => {
+                        warnLog('[SplashScreen] User acknowledged language pack requirement');
+                        resolve();
+                      },
+                    },
+                  ],
+                  {cancelable: false},
+                );
+              });
+            }
+          }
+
+          const translatorReady = await translationService.initialize();
+          if (translatorReady) {
+            warnLog('[SplashScreen] Platform translation initialized successfully');
+          } else {
+            warnLog('[SplashScreen] Platform translation not available on this device');
+            setTranslatorModelError('Translation not available on this device');
+          }
         } catch (error) {
-          warnLog('[SplashScreen] NLLB model install failed:', error);
-          setTranslatorModelError(error instanceof Error ? error.message : 'NLLB install failed');
+          warnLog('[SplashScreen] Platform translation init failed:', error);
+          setTranslatorModelError(error instanceof Error ? error.message : 'Translation init failed');
         }
 
-        // Step 3: Keep the translation model installed but do not preload it.
-        // On physical iOS devices, keeping STT + NLLB resident before the user
-        // even starts a meeting causes critical memory pressure. Translator load
-        // is deferred until the first real translation request.
-        const translator = getOnDeviceTranslator();
-        const alreadyLoaded = await translator.isLoaded();
-        console.warn('[SplashScreen] isLoaded check: alreadyLoaded =', alreadyLoaded);
-        if (alreadyLoaded) {
-          warnLog('[SplashScreen] NLLB translator already in memory');
-        } else {
-          warnLog('[SplashScreen] NLLB translator install verified; native load deferred until needed');
-        }
+        setTranslatorModelReady(PLATFORM_TRANSLATION_MODEL);
 
-        setTranslatorModelReady(MOCK_TRANSLATOR_MODEL);
-
-        // Step 4: Mark prewarm complete.
+        // Step 3: Mark prewarm complete.
         // Speaker embedding is intentionally NOT warmed here because loading
-        // STT + NLLB + diarization together pushes iOS into critical memory
+        // STT + translation + diarization together pushes iOS into critical memory
         // pressure on physical devices. Diarization is only needed after the
         // meeting or when live speaker assignment is explicitly enabled, so it
         // is initialized lazily at point-of-use instead.
@@ -178,7 +278,7 @@ export const SplashScreen: React.FC = () => {
           {isInitializing || modelState.status === 'downloading' || useBootstrapStore.getState().state.translatorModel.status === 'downloading' ? (
             <ProgressCard
               title="Loading on-device models..."
-              subtitle={`${MOCK_MODEL.name} + ${MOCK_TRANSLATOR_MODEL.name}`}
+              subtitle={`${MOCK_MODEL.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
               progress={getProgressPercentage()}
               bytesDownloaded={modelState.downloadProgress?.bytesDownloaded ?? 0}
               totalBytes={modelState.downloadProgress?.totalBytes ?? MOCK_MODEL.diskFootprintMB * 1024 * 1024}

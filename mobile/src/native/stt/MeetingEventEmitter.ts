@@ -7,10 +7,8 @@
  *
  * Per architecture:
  * - Native layer emits STT outputs into a single controlled JS event boundary
- * - JS layer never streams raw audio over network; only text events cross to server
+ * - Only text events cross to JS layer; audio stays in native memory
  * - Every message affecting transcript/rendering correlated by utterance_id and session_id
- *
- * @see docs/planning-artifacts/architecture.md#Communication-Patterns
  */
 
 import type { SessionId } from '../../shared/types/common';

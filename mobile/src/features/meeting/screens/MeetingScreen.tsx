@@ -38,6 +38,7 @@ import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
 type MeetingNavigationProp = StackNavigationProp<RootStackParamList, 'Meeting'>;
+type LaneFocusMode = 'original' | 'split' | 'translation';
 
 const APP_NAME = 'Executive MVA';
 
@@ -105,6 +106,12 @@ function WaitingStateOverlay({
 }): React.JSX.Element {
   const {theme} = useTheme();
   const waveHeights = [12, 20, 14, 24, 16, 22, 10];
+  const languageHints = [
+    {flag: '🇬🇧', code: 'EN'},
+    {flag: '🇯🇵', code: 'JA'},
+    {flag: '🇰🇷', code: 'KO'},
+    {flag: '🇨🇳', code: 'ZH'},
+  ] as const;
 
   return (
     <Animated.View
@@ -131,50 +138,21 @@ function WaitingStateOverlay({
 
         {/* Language hint pills */}
         <View style={styles.languageHintRow}>
-          <View
-            style={[
-              styles.languageHintPill,
-              {backgroundColor: theme.colors.surface.secondary},
-            ]}>
-            <Text style={[styles.languageHintFlag]}>🇬🇧</Text>
-            <Text
-              style={[styles.languageHintText, {color: theme.colors.text.tertiary}]}>
-              EN
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.languageHintPill,
-              {backgroundColor: theme.colors.surface.secondary},
-            ]}>
-            <Text style={[styles.languageHintFlag]}>🇯🇵</Text>
-            <Text
-              style={[styles.languageHintText, {color: theme.colors.text.tertiary}]}>
-              JA
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.languageHintPill,
-              {backgroundColor: theme.colors.surface.secondary},
-            ]}>
-            <Text style={[styles.languageHintFlag]}>🇰🇷</Text>
-            <Text
-              style={[styles.languageHintText, {color: theme.colors.text.tertiary}]}>
-              KO
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.languageHintPill,
-              {backgroundColor: theme.colors.surface.secondary},
-            ]}>
-            <Text style={[styles.languageHintFlag]}>🇨🇳</Text>
-            <Text
-              style={[styles.languageHintText, {color: theme.colors.text.tertiary}]}> 
-              ZH
-            </Text>
-          </View>
+          {languageHints.map(({flag, code}) => (
+            <View
+              key={code}
+              style={[
+                styles.languageHintPill,
+                {backgroundColor: theme.colors.surface.secondary},
+              ]}>
+              <Text style={styles.languageHintFlag}>{flag}</Text>
+              <Text
+                style={[styles.languageHintText, {color: theme.colors.text.tertiary}]}
+                numberOfLines={1}>
+                {code}
+              </Text>
+            </View>
+          ))}
         </View>
       </View>
     </Animated.View>
@@ -221,6 +199,7 @@ export function MeetingScreen(): React.JSX.Element {
       : 'AUTO';
 
   const [latencyMs] = useState<number | null>(45);
+  const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
   const waitingOpacity = useRef(new Animated.Value(1)).current;
   const hasShownFirstSpeech = useRef(false);
 
@@ -288,6 +267,16 @@ export function MeetingScreen(): React.JSX.Element {
   const sttReady = modelState.status === 'cached-ready';
   const translatorInstalled = translatorModelState.status === 'cached-ready';
   const canStartCapture = sttReady && prewarmState.status !== 'failed';
+  const isLiveWorkspace = isActive || status === 'stopping';
+  const showTranscriptLane = laneFocusMode !== 'translation';
+  const showTranslationLane = laneFocusMode !== 'original';
+  const transcriptLaneFlex = laneFocusMode === 'split' ? 1 : 1;
+  const translationLaneFlex = laneFocusMode === 'split' ? 1 : 1;
+  const laneFocusOptions: Array<{key: LaneFocusMode; label: string}> = [
+    {key: 'original', label: 'Original'},
+    {key: 'split', label: 'Split'},
+    {key: 'translation', label: 'Translation'},
+  ];
 
   const handlePrimaryButtonPress = useCallback(async () => {
     if (isActive) {
@@ -334,7 +323,8 @@ export function MeetingScreen(): React.JSX.Element {
               styles.headerTitle,
               theme.typography.screenTitle,
               {color: theme.colors.text.primary},
-            ]}>
+            ]}
+            numberOfLines={1}>
             {APP_NAME}
           </Text>
         </View>
@@ -402,24 +392,60 @@ export function MeetingScreen(): React.JSX.Element {
       <View
         style={[styles.lanesContainer, {backgroundColor: theme.colors.surface.primary}]}
         accessibilityLabel="Meeting content">
-        <TranscriptLane
-          entries={transcript}
-          partialTranscript={partialTranscript}
-          currentUtteranceId={currentUtteranceId}
-          isRecording={isRecording}
-          isOffline={isOffline}
-          suppressPlaceholder={showWaiting}
-        />
-        <TranslationLane
-          entries={session.translations}
-          isOffline={isOffline}
-          isDegraded={isDegraded}
-          translationAvailable={true}
-          degradedMessage={degradedMessage}
-          isActive={isActive}
-          isRecording={isRecording}
-          suppressPlaceholder={showWaiting}
-        />
+        <View
+          style={[
+            styles.laneFocusToggle,
+            {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+          ]}>
+          {laneFocusOptions.map((option) => {
+            const isActiveOption = laneFocusMode === option.key;
+            return (
+              <TouchableOpacity
+                key={option.key}
+                style={[
+                  styles.laneFocusOption,
+                  isActiveOption && {backgroundColor: theme.colors.surface.primary},
+                ]}
+                onPress={() => setLaneFocusMode(option.key)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{selected: isActiveOption}}
+                accessibilityLabel={`Focus ${option.label.toLowerCase()} lane`}>
+                <Text
+                  style={[
+                    styles.laneFocusOptionText,
+                    {color: isActiveOption ? theme.colors.text.primary : theme.colors.text.tertiary},
+                  ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {showTranscriptLane && (
+          <TranscriptLane
+            style={{flex: transcriptLaneFlex}}
+            entries={transcript}
+            partialTranscript={partialTranscript}
+            currentUtteranceId={currentUtteranceId}
+            isRecording={isRecording}
+            isOffline={isOffline}
+            suppressPlaceholder={showWaiting}
+          />
+        )}
+        {showTranslationLane && (
+          <TranslationLane
+            style={{flex: translationLaneFlex}}
+            entries={session.translations}
+            isOffline={isOffline}
+            isDegraded={isDegraded}
+            translationAvailable={true}
+            degradedMessage={degradedMessage}
+            isActive={isActive}
+            isRecording={isRecording}
+            suppressPlaceholder={showWaiting}
+          />
+        )}
 
         {/* Waiting State Overlay */}
         {showWaiting && (
@@ -427,48 +453,53 @@ export function MeetingScreen(): React.JSX.Element {
         )}
       </View>
 
-      {/* Footer with Controls */}
-      <View style={[styles.footer, {backgroundColor: theme.colors.surface.primary}]}>
-        {/* Primary Start/Stop Button */}
-        <TouchableOpacity
+      {/* Developer Metrics Overlay — visible only when dev mode is on */}
+      {developerMode && isActive && <DeveloperMetricsOverlay />}
+
+      {!isLiveWorkspace && (
+        <View
           style={[
-            styles.primaryButton,
-            {
-              backgroundColor: isActive
-                ? theme.colors.error
-                : theme.colors.primary,
-            },
-          ]}
-          onPress={handlePrimaryButtonPress}
-          activeOpacity={0.85}
-          disabled={isButtonDisabled}
-          accessibilityLabel={isActive ? 'Stop meeting' : 'Start meeting'}
-          accessibilityHint={
-            isActive
-              ? 'Ends the current recording session'
-              : canStartCapture
-                ? 'Begins a new recording session'
-                : 'Navigate to settings to configure models'
-          }>
-          <View style={styles.primaryButtonContent}>
-            <AppIcon
-              name={isActive ? 'stop' : 'mic'}
-              size={20}
-              color={theme.colors.text.primary}
-            />
-            <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}>
-              {getButtonLabel()}
-            </Text>
+            styles.footer,
+            styles.footerIdle,
+            {backgroundColor: theme.colors.surface.primary},
+          ]}>
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              {
+                backgroundColor: isActive
+                  ? theme.colors.error
+                  : theme.colors.primary,
+              },
+            ]}
+            onPress={handlePrimaryButtonPress}
+            activeOpacity={0.85}
+            disabled={isButtonDisabled}
+            accessibilityLabel={isActive ? 'Stop meeting' : 'Start meeting'}
+            accessibilityHint={
+              isActive
+                ? 'Ends the current recording session'
+                : canStartCapture
+                  ? 'Begins a new recording session'
+                  : 'Navigate to settings to configure models'
+            }>
+            <View style={styles.primaryButtonContent}>
+              <AppIcon
+                name={isActive ? 'stop' : 'mic'}
+                size={20}
+                color={theme.colors.text.primary}
+              />
+              <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}> 
+                {getButtonLabel()}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.bottomNavWrap}>
+            <AppBottomNav activeTab="live" />
           </View>
-        </TouchableOpacity>
-
-        {/* Developer Metrics Overlay — visible only when dev mode is on */}
-        {developerMode && isActive && <DeveloperMetricsOverlay />}
-
-        <View style={styles.bottomNavWrap}>
-          <AppBottomNav activeTab="live" />
         </View>
-      </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -491,107 +522,139 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   headerLeft: {
     gap: 2,
+    flex: 1,
+    minWidth: 0,
   },
   headerEyebrow: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  headerTitle: {},
+  headerTitle: {
+    fontSize: 20,
+    lineHeight: 28,
+  },
   headerActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    marginLeft: 12,
   },
   headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statusBarContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 6,
   },
   lanesContainer: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    gap: 10,
+  },
+  laneFocusToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  laneFocusOption: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  laneFocusOptionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   readinessWarning: {
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
   readinessTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   readinessCopy: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
   },
   footer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 0,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.06)',
-    gap: 12,
+    gap: 8,
+  },
+  footerIdle: {
+    paddingBottom: 0,
   },
   bottomNavWrap: {
     marginHorizontal: -16,
   },
   primaryButton: {
-    height: 56,
+    height: 52,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#6C5CE7',
-    shadowOffset: {width: 0, height: 8},
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
+     shadowOffset: {width: 0, height: 8},
+     shadowOpacity: 0.25,
+     shadowRadius: 24,
   },
   primaryButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   primaryButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   // Waiting state overlay styles
   waitingOverlay: {
     position: 'absolute',
-    top: 40,
+    top: 24,
     left: 0,
     right: 0,
-    bottom: '46%',
+    bottom: '58%',
     justifyContent: 'flex-start',
     alignItems: 'center',
     zIndex: 10,
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
   waitingContent: {
     alignItems: 'center',
-    gap: 14,
+    gap: 6,
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 300,
   },
   soundWaveContainer: {
     flexDirection: 'row',
@@ -605,38 +668,43 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   waitingTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
   },
   waitingHint: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
     textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 260,
+    lineHeight: 18,
+    maxWidth: 250,
   },
   languageHintRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    maxWidth: 240,
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 0,
+    width: '100%',
+    maxWidth: 280,
   },
   languageHintPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    gap: 3,
+    minWidth: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 9,
   },
   languageHintFlag: {
-    fontSize: 12,
+    fontSize: 11,
   },
   languageHintText: {
     fontSize: 10,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });
 

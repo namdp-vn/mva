@@ -21,12 +21,15 @@ import {
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import {useTheme} from '../../../shared/hooks/useTheme';
 import {AppIcon, SpeakerBadge} from '../../../shared/components/ui';
 import {TranslationEntry} from '../state/meetingStore';
 
 interface TranslationLaneProps {
+  style?: StyleProp<ViewStyle>;
   entries: TranslationEntry[];
   isOffline: boolean;
   isDegraded: boolean;
@@ -109,35 +112,38 @@ function TranslationEntryItem({
       accessibilityLabel={`${isProvisional ? 'Provisional translation' : 'Translation'}: ${entry.translatedText}`}
       accessibilityRole="text">
       <View style={styles.entryHeader}>
-        {/* Speaker badge - shown before timestamp if available */}
-        <SpeakerBadge speakerId={entry.speakerId} label={entry.speakerId} size="small" />
-        <Text style={[styles.timestamp, {color: theme.colors.text.tertiary}]}>
-          {new Date(entry.timestamp).toLocaleTimeString('en-US', {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          })}
-        </Text>
-        {isProvisional && <ProvisionalBadge />}
-        {!isProvisional && (
-          <View style={styles.finalBadge}>
-            <AppIcon name="check-circle" size={10} color={theme.colors.text.tertiary} />
-            <Text style={[styles.finalBadgeText, {color: theme.colors.text.tertiary}]}>
-              FINAL
-            </Text>
-          </View>
-        )}
-        {entry.isProcessing && (
-          <View style={styles.processingIndicator}>
-            <View style={styles.processingDots}>
-              <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
-              <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
-              <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
+        <View style={styles.entryHeaderLeft}>
+          <SpeakerBadge speakerId={entry.speakerId} label={entry.speakerId} size="small" />
+          <Text style={[styles.timestamp, {color: theme.colors.text.tertiary}]}> 
+            {new Date(entry.timestamp).toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })}
+          </Text>
+        </View>
+        <View style={styles.entryHeaderRight}>
+          {isProvisional && <ProvisionalBadge />}
+          {!isProvisional && (
+            <View style={styles.finalBadge}>
+              <AppIcon name="check-circle" size={10} color={theme.colors.text.tertiary} />
+              <Text style={[styles.finalBadgeText, {color: theme.colors.text.tertiary}]}> 
+                FINAL
+              </Text>
             </View>
-            <Text style={[styles.processingText, {color: theme.colors.secondary}]}>Translating</Text>
-          </View>
-        )}
+          )}
+          {entry.isProcessing && (
+            <View style={styles.processingIndicator}>
+              <View style={styles.processingDots}>
+                <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
+                <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
+                <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
+              </View>
+              <Text style={[styles.processingText, {color: theme.colors.secondary}]}>Translating</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Provisional: lighter opacity, warm tint */}
@@ -151,7 +157,10 @@ function TranslationEntryItem({
       </Text>
 
       {entry.originalText ? (
-        <Text style={[styles.originalText, {color: theme.colors.text.tertiary}]}>
+        <Text
+          style={[styles.originalText, {color: theme.colors.text.tertiary}]}
+          numberOfLines={1}
+          ellipsizeMode="tail">
           {entry.originalText}
         </Text>
       ) : null}
@@ -246,6 +255,7 @@ function WaitingState({isRecording}: {isRecording: boolean}): React.JSX.Element 
 // =============================================================================
 
 export function TranslationLane({
+  style,
   entries,
   isOffline,
   isDegraded,
@@ -327,6 +337,7 @@ export function TranslationLane({
     <View
       style={[
         styles.container,
+        style,
         {backgroundColor: theme.colors.surface.primary},
         isOffline && styles.offlineContainerStyle,
         isDegraded && styles.degradedContainerStyle,
@@ -411,7 +422,7 @@ export function TranslationLane({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -428,16 +439,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingLeft: 8,
+    gap: 6,
+    paddingLeft: 6,
     borderLeftWidth: 2,
     flexShrink: 1,
     minWidth: 0,
@@ -448,13 +459,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   headerLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   headerSubtitle: {
-    fontSize: 10,
+    fontSize: 9,
   },
   headerRight: {
     flexDirection: 'row',
@@ -471,32 +482,32 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   activeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   offlineBannerText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   degradedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
+    gap: 6,
+    paddingHorizontal: 10,
     paddingVertical: 6,
   },
   degradedBannerText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
@@ -511,9 +522,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 48,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 12,
   },
   entryContainer: {
     gap: 4,
@@ -528,17 +540,31 @@ const styles = StyleSheet.create({
     // Subtle warm tint for provisional (per UX guidance)
     backgroundColor: 'rgba(255, 200, 100, 0.04)',
     borderRadius: 8,
-    padding: 12,
+    padding: 10,
     marginBottom: 4,
   },
   entryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 2,
+    gap: 6,
+  },
+  entryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  entryHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
   },
   timestamp: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: 'monospace',
   },
   provisionalBadge: {
@@ -549,7 +575,7 @@ const styles = StyleSheet.create({
   provisionalBadgeText: {
     fontSize: 8,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   finalBadge: {
     flexDirection: 'row',
@@ -559,7 +585,7 @@ const styles = StyleSheet.create({
   finalBadgeText: {
     fontSize: 8,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   processingIndicator: {
     flexDirection: 'row',
@@ -576,12 +602,12 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   processingText: {
-    fontSize: 9,
+    fontSize: 8,
     fontStyle: 'italic',
   },
   entryText: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 21,
     fontWeight: '500',
   },
   provisionalEntryText: {
@@ -589,17 +615,18 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   originalText: {
-    fontSize: 12,
+    fontSize: 11,
     fontStyle: 'italic',
-    lineHeight: 18,
+    lineHeight: 16,
     marginTop: 2,
+    opacity: 0.82,
   },
   offlineContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    gap: 12,
+    padding: 20,
+    gap: 10,
   },
   offlineIconContainer: {
     width: 56,
@@ -610,39 +637,39 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   offlineTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   offlineDescription: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
     paddingHorizontal: 16,
   },
   degradedContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    gap: 8,
+    padding: 20,
+    gap: 6,
   },
   degradedTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   degradedDescription: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   waitingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    gap: 12,
+    padding: 20,
+    gap: 10,
   },
   waitingIconRow: {
     flexDirection: 'row',
@@ -650,27 +677,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   languageChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
   languageChipText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   arrowContainer: {
     opacity: 0.5,
   },
   waitingTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   waitingDescription: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   placeholderSpacer: {
     flex: 1,

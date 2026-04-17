@@ -23,9 +23,7 @@ import {
   getOnDeviceTranslator,
   isTranslationCancelledError,
   mapSourceLanguageToNllb,
-  mapTargetLanguageToNllb,
 } from '../../../services/OnDeviceTranslator';
-import {getNllbModelDir} from '../../../native/nllb/modelPaths';
 import {
   getMeetingPipelineInstance,
   MeetingPipeline,
@@ -67,8 +65,10 @@ let persistenceService: PersistenceService | null = null;
 let meetingPipeline: MeetingPipeline | null = null;
 let realSpeechRecognizer: RealSpeechRecognizer | null = null;
 
+// Platform-native translation (Apple Translation on iOS, Opus-MT on Android) is
+// memory-efficient (~30-50MB) so we don't need to disable it on iOS debug builds
 function isIosDebugLiveTranslationDisabled(): boolean {
-  return Platform.OS === 'ios' && __DEV__;
+  return false;
 }
 
 type DeferredTranslationItem = {
@@ -80,10 +80,10 @@ type DeferredTranslationItem = {
   timestampMs: number;
 };
 
-/** Single-flight NLLB native init; must not block STT/mic (loading ~1GB competes for RAM with SenseVoice). */
-let nllbInitInFlight: Promise<boolean> | null = null;
+/** Single-flight translator native init; must not block STT/mic. */
+let translatorInitInFlight: Promise<boolean> | null = null;
 
-function kickOffNllbInitIfNeeded(): void {
+function kickOffTranslatorInitIfNeeded(): void {
   if (isIosDebugLiveTranslationDisabled()) {
     return;
   }
@@ -94,20 +94,20 @@ function kickOffNllbInitIfNeeded(): void {
   if (translator.isSuppressedForMemoryPressure()) {
     return;
   }
-  if (nllbInitInFlight) {
+  if (translatorInitInFlight) {
     return;
   }
-  nllbInitInFlight = (async (): Promise<boolean> => {
+  translatorInitInFlight = (async (): Promise<boolean> => {
     try {
       const loaded = await translator.isLoaded();
-      console.warn('[useMeetingSession] kickOffNllbInitIfNeeded: isLoaded =', loaded);
+      console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded: isLoaded =', loaded);
       if (translator.isSuppressedForMemoryPressure()) {
         warnLog('[useMeetingSession] Translation suppressed after memory warning.');
         return false;
       }
       if (!loaded) {
-        console.warn('[useMeetingSession] kickOffNllbInitIfNeeded: calling translator.initialize()...');
-        const ok = await translator.initialize(getNllbModelDir());
+        console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded: calling translator.initialize()...');
+        const ok = await translator.initialize('');
         if (!ok) return false;
       }
       return true;
@@ -116,23 +116,23 @@ function kickOffNllbInitIfNeeded(): void {
       return false;
     }
   })();
-  nllbInitInFlight.finally(() => {
-    nllbInitInFlight = null;
+  translatorInitInFlight.finally(() => {
+    translatorInitInFlight = null;
   });
 }
 
-/** Wait for on-device translator after kickOff; used on stt_final so translation is not dropped while NLLB loads. */
+/** Wait for on-device translator after kickOff; used on stt_final so translation is not dropped while translator loads. */
 async function awaitTranslatorReadyForTranslate(timeoutMs: number): Promise<boolean> {
   if (isIosDebugLiveTranslationDisabled()) {
     return false;
   }
-  kickOffNllbInitIfNeeded();
+  kickOffTranslatorInitIfNeeded();
   // Prefer awaiting the in-flight init promise directly so final translation
   // never races ahead of native model setup.
-  if (nllbInitInFlight) {
+  if (translatorInitInFlight) {
     try {
       return await Promise.race([
-        nllbInitInFlight,
+        translatorInitInFlight,
         new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
       ]);
     } catch {
@@ -194,7 +194,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
   const translationVersionRef = useRef(new Map<UtteranceId, number>());
   const deferredTranslationsRef = useRef(new Map<UtteranceId, DeferredTranslationItem>());
   // Per-utterance draft throttling: only translate partials when the text has
-  // grown enough AND enough time has passed since the last draft, so NLLB does
+  // grown enough AND enough time has passed since the last draft, so translation does
   // not starve STT CPU.
   const draftLastSizeRef = useRef(new Map<UtteranceId, number>());
   const draftLastTimestampRef = useRef(new Map<UtteranceId, number>());
@@ -580,7 +580,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     const translator = getOnDeviceTranslator();
     translator.clearMemoryPressureSuppression();
 
-    const ready = await translator.ensureLoaded(getNllbModelDir()).catch(() => false);
+    const ready = await translator.ensureLoaded('').catch(() => false);
     if (!ready) {
       warnLog('[useMeetingSession] Deferred translation init failed; leaving untranslated backlog persisted.');
       return;
@@ -593,7 +593,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
         const translatedText = await translator.translate({
           text: item.sourceText.trim(),
           sourceLanguage: mapSourceLanguageToNllb(item.sourceLanguage),
-          targetLanguage: mapTargetLanguageToNllb(targetLanguage),
         });
 
         const translationId = `trans_${item.utteranceId}_final`;
@@ -632,20 +631,20 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       return;
     }
     const translator = getOnDeviceTranslator();
-    // HARD GATE 1: until splash/meeting has warmed NLLB, drafts would pay the
+    // HARD GATE 1: until splash/meeting has warmed the translator, drafts would pay the
     // ~multi-second decoder_model lazy-load themselves and stall every
     // subsequent partial behind them. Let the final translate absorb that cost
     // instead; later utterances will run on a hot model.
     if (!translator.isWarmedUp()) {
       return;
     }
-    // HARD GATE 2: if NLLB is still crunching the previous draft, bail out NOW.
-    // Native NLLB has no cancellation — every queued call WILL run to
+    // HARD GATE 2: if translator is still crunching the previous draft, bail out NOW.
+    // Translation has no cancellation — every queued call WILL run to
     // completion (~500-800ms each). For a 10s utterance with partials every
     // 300ms this stacks ~12s of cumulative work, which is exactly the ~13s
     // lag users observe. Letting the next partial trigger a draft once the
     // translator is free produces a smoother cadence and, crucially, keeps
-    // the final translation latency bounded to ONE NLLB run after stt_final.
+    // the final translation latency bounded to ONE translation run after stt_final.
     if (translator.isTranslating()) {
       return;
     }
@@ -680,10 +679,10 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     const dispatchDraftTranslation = async () => {
       const translator = getOnDeviceTranslator();
       // Wait for warm-up instead of silently dropping the draft. If Splash has
-      // already loaded NLLB, this resolves instantly; otherwise we await the
+      // already loaded translator, this resolves instantly; otherwise we await the
       // shared in-flight promise so the first few partials still get translated.
       const translatorReady = await translator
-        .ensureLoaded(getNllbModelDir())
+        .ensureLoaded('')
         .catch(() => false);
       if (!translatorReady) {
         return;
@@ -696,7 +695,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       translator.translate({
         text: event.text,
         sourceLanguage: mapSourceLanguageToNllb(event.language),
-        targetLanguage: mapTargetLanguageToNllb(preferredTargetLanguage),
         requestId: nextVersion,
       }).then((result) => {
         const activeVersion = translationVersionRef.current.get(event.utterance_id);
@@ -737,7 +735,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     if (event.type === 'stt_partial') {
       // Kick off a draft translation so the translation lane tracks the
       // transcript in near-realtime instead of waiting for endpoint detection
-      // to fire stt_final (which adds ~800-1500ms silence + another full NLLB
+      // to fire stt_final (which adds ~800-1500ms silence + another full translation
       // call). `maybeTranslateDraft` self-throttles by growth + interval so
       // STT CPU stays available.
       maybeTranslateDraft(event);
@@ -890,7 +888,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
 
         const translatorReady = await awaitTranslatorReadyForTranslate(180_000);
         if (!translatorReady) {
-          warnLog('[useMeetingSession] NLLB not ready after wait; skipping translation for utterance.');
+          warnLog('[useMeetingSession] Translator not ready after wait; skipping translation for utterance.');
           queueDeferredTranslation(untranslatedItem);
           persistUntranslatedFinal(untranslatedItem).catch((err) =>
             warnLog('[useMeetingSession] Failed to persist untranslated utterance:', err),
@@ -907,7 +905,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
           .translate({
             text: translationInputText,
             sourceLanguage: mapSourceLanguageToNllb(event.language),
-            targetLanguage: mapTargetLanguageToNllb(preferredTargetLanguage),
             requestId: nextVersion,
           })
           .then((result) => {
@@ -1151,7 +1148,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
         }
       }
 
-      // Do not eagerly load NLLB here. On iOS devices this competes with the
+      // Do not eagerly load translator here. On iOS devices this competes with the
       // already-live STT model and can trigger critical memory pressure before
       // the first translation is even needed. Translation initialization stays
       // lazy and is awaited by the actual translation path.

@@ -11,7 +11,7 @@
  *   based on architecture docs (~1.1-1.3 GB total) plus a JS runtime estimate.
  * - The JS heap proxy (used when Hermes memory is available) captures only
  *   the JavaScript engine's heap — it does NOT include native allocations
- *   (STT model, NLLB model, audio buffers). It is a LOWER BOUND.
+ *   (STT model, translation model, audio buffers). It is a LOWER BOUND.
  *
  * SAFETY:
  * - All reads are synchronous and do not block the main thread significantly.
@@ -78,9 +78,9 @@ export function getRamMetrics(): RamMetrics {
   }
 
   // Static model RAM budget from architecture.md §5.1
-  // SenseVoice (~400MB) + NLLB-600M (~550MB) + RN runtime (~100MB) + SQLite (~20MB) ≈ 1.07GB
-  // We round up to 1.1GB (1126 MB) as a conservative estimate.
-  const STATIC_RAM_MB = 1126;
+  // SenseVoice (~400MB) + On-Device Translation (~50-100MB) + RN runtime (~100MB) + SQLite (~20MB) ≈ 620MB
+  // We use 700MB as a conservative estimate for devices with additional overhead.
+  const STATIC_RAM_MB = 700;
 
   return {
     estimatedMB: STATIC_RAM_MB,

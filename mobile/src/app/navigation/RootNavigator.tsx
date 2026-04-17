@@ -15,8 +15,6 @@ import {ThemeProvider} from '../../shared/hooks/useTheme';
 import {useBootstrapStore, useBootstrapOverallStatus} from '../../shared/store';
 import {areBundledAssetsAvailable, ensureBundledModelInstalled} from '../../native/models/BundledModelInstaller';
 import {getSpeakerEmbeddingService} from '../../native/speaker/SpeakerEmbeddingService';
-import {getOnDeviceTranslator} from '../../services/OnDeviceTranslator';
-import {getNllbModelDir} from '../../native/nllb/modelPaths';
 
 const STT_MODEL_INFO = {
   id: 'sensevoice-small',
@@ -29,24 +27,11 @@ const STT_MODEL_INFO = {
   isOptimizedFor: ['iPhone 15 Pro'],
 };
 
-const NLLB_MODEL_INFO = {
-  id: 'nllb-600m-mobile',
-  name: 'NLLB-600M Mobile',
-  version: '0.1.0-bundled',
-  quality: 'int8' as const,
-  diskFootprintMB: 780,
-  languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
-  inferenceSpeedRTF: 0.4,
-  isOptimizedFor: ['iPhone 15 Pro'],
-};
-
 function BundledModelsInitializer(): null {
   const {
     initialize,
     setModelReady,
     setModelError,
-    setTranslatorModelReady,
-    setTranslatorModelError,
     startPrewarm,
     completePrewarm,
   } = useBootstrapStore();
@@ -56,7 +41,6 @@ function BundledModelsInitializer(): null {
 
     const run = async () => {
       initialize();
-      let translatorReady = false;
 
       const hasBundledStt = await areBundledAssetsAvailable('stt');
       if (hasBundledStt) {
@@ -74,23 +58,6 @@ function BundledModelsInitializer(): null {
         setModelError('Bundled STT model files are missing from mobile/assets/models.');
       }
 
-      const hasBundledNllb = await areBundledAssetsAvailable('nllb');
-      if (hasBundledNllb) {
-        try {
-          await ensureBundledModelInstalled('nllb');
-          if (!cancelled) {
-            setTranslatorModelReady(NLLB_MODEL_INFO);
-            translatorReady = true;
-          }
-        } catch (error) {
-          if (!cancelled) {
-            setTranslatorModelError(error instanceof Error ? error.message : 'Bundled NLLB install failed');
-          }
-        }
-      } else if (!cancelled) {
-        setTranslatorModelError('Bundled NLLB model files are missing from mobile/assets/models/nllb-600m-mobile.');
-      }
-
       const hasBundledDiarization = await areBundledAssetsAvailable('diarization');
       if (hasBundledDiarization) {
         try {
@@ -101,27 +68,7 @@ function BundledModelsInitializer(): null {
         }
       }
 
-      // Preload NLLB translation model so translation is instant when meeting starts.
-      // MUST await this before calling completePrewarm() so the model is actually in memory.
-      if (!cancelled && hasBundledNllb) {
-        try {
-          const translator = getOnDeviceTranslator();
-          const alreadyLoaded = await translator.isLoaded();
-          if (!alreadyLoaded) {
-            console.warn('[BundledModelsInitializer] Preloading NLLB translation model...');
-            await translator.initialize(getNllbModelDir());
-            console.warn('[BundledModelsInitializer] NLLB translation model preloaded successfully');
-          } else {
-            console.warn('[BundledModelsInitializer] NLLB translation model already loaded');
-          }
-          // Model is now in memory - translatorReady is already true from above
-        } catch (error) {
-          console.warn('[BundledModelsInitializer] NLLB preload failed (translation will be delayed):', error);
-        }
-      }
-
-      // Only mark prewarm complete AFTER NLLB is actually loaded into memory
-      if (!cancelled && hasBundledStt && translatorReady) {
+      if (!cancelled && hasBundledStt) {
         startPrewarm();
         setTimeout(() => {
           if (!cancelled) {
@@ -138,7 +85,7 @@ function BundledModelsInitializer(): null {
     return () => {
       cancelled = true;
     };
-  }, [completePrewarm, initialize, setModelError, setModelReady, setTranslatorModelError, setTranslatorModelReady, startPrewarm]);
+  }, [completePrewarm, initialize, setModelError, setModelReady, startPrewarm]);
 
   return null;
 }

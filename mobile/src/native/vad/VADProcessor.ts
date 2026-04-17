@@ -56,14 +56,12 @@ export interface VADSegment {
 /**
  * VADProcessor
  *
- * Simulates on-device VAD processing.
- * In production, this would use react-native-sherpa-onnx VAD model
- * through TurboModules/JSI.
+ * On-device VAD processing using Silero VAD model.
+ * Filters silence/non-speech before passing data to STT.
  *
- * Architecture rules (per AC 2.3):
+ * Architecture rules:
  * - Raw audio stays local to native runtime only
  * - Exposes only speech-state/status or transcript-ready outputs
- * - No code path sends audio to backend transport
  */
 export class VADProcessor {
   private config: VADConfig;
