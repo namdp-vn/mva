@@ -19,7 +19,7 @@ class SecureStorageBridgePackage : BaseReactPackage() {
         false,
         true,
         false,
-        true,
+        false,
       ),
     )
   }

@@ -5,23 +5,36 @@ import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.facebook.react.defaults.DefaultReactNativeHost
 import com.vibevoicenative.securestorage.SecureStorageBridgePackage
 import com.vibevoicenative.speaker.OfflineSpeakerDiarizationPackage
-import com.vibevoicenative.translation.OpusMtTranslatorPackage
+import com.vibevoicenative.speaker.SpeakerEmbeddingPackage
+import com.vibevoicenative.translation.MLKitTranslatorPackage
 
 class MainApplication : Application(), ReactApplication {
 
+  override val reactNativeHost: ReactNativeHost =
+      object : DefaultReactNativeHost(this) {
+        override fun getPackages(): List<ReactPackage> =
+            PackageList(this).packages.apply {
+              add(SecureStorageBridgePackage())
+              add(OfflineSpeakerDiarizationPackage())
+              add(SpeakerEmbeddingPackage())
+              add(MLKitTranslatorPackage())
+            }
+
+        override fun getJSMainModuleName(): String = "index"
+
+        override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
+
+        override val isNewArchEnabled: Boolean = true
+      }
+
   override val reactHost: ReactHost by lazy {
-    getDefaultReactHost(
-      context = applicationContext,
-      packageList =
-        PackageList(this).packages.apply {
-          add(SecureStorageBridgePackage())
-          add(OfflineSpeakerDiarizationPackage())
-          add(OpusMtTranslatorPackage())
-        },
-    )
+    getDefaultReactHost(applicationContext, reactNativeHost)
   }
 
   override fun onCreate() {

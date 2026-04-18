@@ -32,6 +32,7 @@ import {DeveloperMetricsOverlay} from '../components/DeveloperMetricsOverlay/Dev
 import {TranscriptLane} from '../components/TranscriptLane';
 import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
+import {requestAudioPermission} from '../../../shared/utils/permissions';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
@@ -93,9 +94,16 @@ export function MeetingScreen(): React.JSX.Element {
     }
   }, [modelState.status, prewarmState.status, startPrewarm, completePrewarm]);
 
-  const handleStartMeeting = useCallback(() => {
-    // Use target language from user preferences (defaults to Vietnamese)
-    startMeeting('en', targetLanguage);
+  const handleStartMeeting = useCallback(async () => {
+    console.warn('[MeetingScreen] handleStartMeeting: pressed');
+    const hasPermission = await requestAudioPermission();
+    console.warn('[MeetingScreen] handleStartMeeting: permission result', {hasPermission});
+    if (!hasPermission) {
+      return;
+    }
+    console.warn('[MeetingScreen] handleStartMeeting: calling startMeeting', {targetLanguage});
+    await startMeeting('en', targetLanguage);
+    console.warn('[MeetingScreen] handleStartMeeting: startMeeting resolved');
   }, [startMeeting, targetLanguage]);
 
   const handleStopMeeting = useCallback(async () => {
@@ -147,7 +155,7 @@ export function MeetingScreen(): React.JSX.Element {
       return;
     }
 
-    handleStartMeeting();
+    await handleStartMeeting();
   }, [isActive, handleStopMeeting, canStartCapture, navigation, handleStartMeeting]);
 
   const getButtonLabel = (): string => {

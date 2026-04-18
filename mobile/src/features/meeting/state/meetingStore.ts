@@ -113,6 +113,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
 
   startSession: (sourceLanguage, targetLanguage) => {
     const id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    console.warn('[MeetingStore] startSession', {id, sourceLanguage, targetLanguage});
     set({
       session: {
         ...initialMeetingSession,

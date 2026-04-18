@@ -112,21 +112,15 @@ android {
     }
 }
 
-def bundledModelsSrc = file("$rootDir/../assets/models")
-def bundledModelsDst = file("$projectDir/src/main/assets/models")
-
-tasks.register("copyBundledModelsToAndroidAssets", Copy) {
-    onlyIf { bundledModelsSrc.exists() }
-    from(bundledModelsSrc)
-    into(bundledModelsDst)
-}
-
-preBuild.dependsOn("copyBundledModelsToAndroidAssets")
-
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    compileOnly("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+
+    // Google ML Kit Translation — on-device, offline after pack download
+    implementation 'com.google.mlkit:translate:17.0.3'
+
+    // Coroutines for ML Kit tasks.await()
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

@@ -1,39 +1,21 @@
-# Story 4.6: Deliver accessibility and dark mode for meeting screen
+# Story 4.6: Deliver Accessibility and Dark Mode for Meeting Screen
 
 Status: ready-for-dev
 
 ## Story
 
-As a user,
-I want the meeting screen accessible and readable in both dark and light mode,
-so that the app works in any meeting room lighting condition.
+As a user, I want the meeting screen to work in both dark and light mode with full accessibility support.
 
 ## Acceptance Criteria
 
-1. **Given** the system is set to dark mode
-   **When** the meeting screen renders
-   **Then** dark background (#0A0A0F), light text (#E4E2EE), and colored lane borders are correctly themed.
-2. **Given** a screen reader is active
-   **When** new transcript/translation entries appear
-   **Then** they are announced with appropriate labels ("New transcript in English: ...", "Translation: ...").
-3. **Given** the user has enabled `prefers-reduced-motion`
-   **When** the meeting screen renders
-   **Then** recording pulse animation is disabled and all transitions are instant.
+1. **Given** system dark mode, **Then** meeting screen uses dark palette (bg #0A0A0F, text #E4E2EE).
+2. **Given** VoiceOver/TalkBack enabled, **Then** all elements have accessibility labels including speaker badge ("Speaker 1, Japanese") and language badge.
+3. **Given** prefers-reduced-motion, **Then** pulse animation disabled, transitions instant.
 
-## Tasks / Subtasks
+## Tasks
 
-- [ ] Implement dark/light mode theming (AC: 1)
-  - [ ] Use design tokens from UX spec for all colors.
-  - [ ] Lane borders: blue (#3B82F6) and amber (#F59E0B) in both modes.
-  - [ ] Test contrast ratios: all text meets WCAG AA (4.5:1).
-- [ ] Add accessibility labels (AC: 2)
-  - [ ] All interactive elements have `accessibilityLabel`.
-  - [ ] New entries announced via `accessibilityLiveRegion="polite"`.
-- [ ] Respect reduced motion (AC: 3)
-  - [ ] Check `AccessibilityInfo.isReduceMotionEnabled()`.
-  - [ ] Disable pulse animation and use instant transitions.
-
-## Dev Notes
-
-- Dark mode first: most meeting rooms are dimly lit. [Source: {UX_REF}#Design Principles]
-- Color independence: lane distinction via left border position + header label, not color alone. [Source: {UX_REF}#Accessibility]
+- [ ] Apply design system color tokens for light/dark mode
+- [ ] Add accessibility labels to SpeakerBadge ("Speaker 1"), LangBadge ("Japanese"), transcript text
+- [ ] Honor prefers-reduced-motion for recording pulse and draft transitions
+- [ ] Test WCAG AA contrast (4.5:1) for all badge colors against both backgrounds
+- [ ] Ensure speaker colors are distinguishable for color-blind users (supplement with S1/S2 text)

@@ -1,41 +1,30 @@
-# Story 2.5: Emit final transcript and detected language at utterance end
+# Story 2.5: Emit Final Transcript and Detected Language at Utterance End
 
 Status: ready-for-dev
 
 ## Story
 
-As a user,
-I want to see the finalized transcription with correct language label when a speaker finishes,
-so that I have an accurate record of what was said.
+As a user, I want to see the finalized transcription with a language badge (EN/JA/KO/ZH/VI) when the speaker finishes a sentence, so that I know what was said and in which language.
 
 ## Acceptance Criteria
 
-1. **Given** a speaker finishes a sentence (VAD detects >600ms silence)
-   **When** the STT engine processes the final audio
-   **Then** a final transcript result is emitted with `is_final=true`, complete text, and detected language code.
-2. **Given** the final result is emitted
-   **When** compared to the previous partial
-   **Then** the final text may differ from the last partial (more accurate) and replaces it cleanly in the UI.
-3. **Given** the detected language
-   **When** displayed
-   **Then** a language badge (EN blue / JA red / KO green) appears next to the utterance.
+1. **Given** speaker finishes sentence (silence > 600ms), **When** STT emits final, **Then** final text replaces partial in Transcript Lane and is marked as complete.
+2. **Given** speech in Japanese, **When** final result emitted, **Then** `lang: "ja"` is included with ≥ 90% accuracy for utterances ≥ 3 words.
+3. **Given** speech in any of 5 languages (EN/JA/KO/ZH/VI), **When** detected, **Then** corresponding colored badge appears: EN=blue, JA=red, KO=green, ZH=orange, VI=purple.
 
-## Tasks / Subtasks
+## Tasks
 
-- [ ] Configure final result emission from sherpa-onnx (AC: 1)
-  - [ ] Final result includes: text, lang ("en"/"ja"/"ko"), utterance_id, timestamp, is_final=true.
-  - [ ] SenseVoice auto-detect provides language code with ≥95% accuracy for utterances ≥3 words.
-- [ ] Handle partial → final transition in store (AC: 2)
-  - [ ] Replace current partial utterance with final version.
-  - [ ] Mark `isFinal: true` in conversation store.
-  - [ ] Trigger final on-device translation (cancels any in-progress partial translation for this utterance).
-- [ ] Render language badge in Transcript Lane (AC: 3)
-  - [ ] LangBadge component: EN (#3B82F6), JA (#EF4444), KO (#22C55E).
-  - [ ] Badge positioned at start of utterance text.
-- [ ] Persist final utterance to SQLite (AC: 1, 2)
-  - [ ] Write utterance record: id, session_id, text, lang, timestamp.
+- [ ] Wire STT final event → Zustand store (utterance marked as isFinal=true)
+- [ ] Extract language code from Whisper result metadata
+- [ ] Build LangBadge component with 5 language colors
+- [ ] Create LanguageMapper service mapping Whisper codes → app codes → badge config
+- [ ] Display final text with language badge + timestamp in Transcript Lane
+- [ ] Trigger translation pipeline on final STT (unless language is Vietnamese)
+- [ ] Trigger speaker embedding extraction on final STT
+- [ ] Pass utterance audio samples + duration to PipelineOrchestrator
 
 ## Dev Notes
 
-- Final result triggers on-device translation via NllbTranslatorModule. No server call. [Source: {ARCH_REF}#Data Flow]
-- Language detection accuracy is critical for NLLB — wrong source language code produces garbage translation. [Source: {ARCH_REF}#Component Architecture]
+- Whisper language codes: 'en', 'ja', 'ko', 'zh', 'vi'
+- Vietnamese utterances skip translation (FR-024)
+- Speaker embedding extraction runs in parallel with translation (non-blocking)

@@ -1,54 +1,33 @@
-# Story 1.1: Initialize mobile project and offline architecture baseline
+# Story 1.1: Initialize Mobile Project and Offline Architecture Baseline
 
 Status: ready-for-dev
 
 ## Story
 
-As a developer,
-I want the React Native project initialized with New Architecture and offline-only foundations,
-so that all later features build on a consistent technical baseline with zero server dependencies.
+As a developer, I want the React Native project initialized with New Architecture (TurboModules), bundled AI models, and offline-only configuration, so that all subsequent stories build on a solid foundation.
 
 ## Acceptance Criteria
 
-1. **Given** the repository contains planning artifacts and architecture guidance
-   **When** the developer initializes the project
-   **Then** a React Native CLI app with New Architecture (TurboModules enabled) is created following the approved directory structure — with no server/backend skeleton, no WebSocket setup, and no infrastructure folder.
-2. **Given** the project skeleton is created
-   **When** baseline engineering setup is reviewed
-   **Then** lint, test, TypeScript configuration files are present and all pass.
-3. **Given** the architecture mandates 100% offline operation
-   **When** any dependency is added
-   **Then** no dependency requires network access at runtime (excluding one-time model download).
+1. **Given** a fresh clone, **When** `yarn install && cd ios && pod install`, **Then** project builds successfully on both platforms.
+2. **Given** the project structure, **When** inspecting the codebase, **Then** all bundled model directories exist: `whisper-small-int8/` (STT, ~244MB), `speaker-diarization/` (pyannote + CAM++, ~35MB), and `opus-mt/` (Android only, ~200MB).
+3. **Given** the app configuration, **When** checking network permissions, **Then** zero network entitlements are declared (no HTTP, no WebSocket).
 
-## Tasks / Subtasks
+## Tasks
 
-- [ ] Create the `mobile/` React Native CLI project with New Architecture enabled (AC: 1)
-  - [ ] Enable TurboModules and Fabric in `gradle.properties` / Podfile.
-  - [ ] Ensure TypeScript-first baseline: `tsconfig.json`, `babel.config.js`, `metro.config.js`, `jest.config.js`.
-  - [ ] Preserve `ios/` and `android/` native folders for TurboModule integration (NllbTranslatorModule).
-- [ ] Establish repository structure for offline-only architecture (AC: 1, 3)
-  - [ ] Create top-level folders: `mobile/`, `models/`, `scripts/`, `docs/`.
-  - [ ] Under `mobile/src/`: `screens/`, `components/`, `hooks/`, `services/`, `native/`, `store/`, `db/`.
-  - [ ] NO `server/`, `infra/`, `docker/` folders — architecture has no backend.
-- [ ] Add baseline quality and configuration setup (AC: 2)
-  - [ ] Add lint/test scripts for mobile.
-  - [ ] Add environment config for model storage paths, not server URLs.
-  - [ ] Ensure zero secrets, zero API keys — app requires no authentication.
-- [ ] Verify the initialized baseline is developer-ready (AC: 1, 2, 3)
-  - [ ] Confirm app boots with placeholder Home screen.
-  - [ ] Confirm no network calls are made during app lifecycle.
+- [ ] Initialize React Native 0.76+ project with New Architecture enabled
+- [ ] Configure TurboModule support for translation and speaker embedding native modules
+- [ ] Add `react-native-sherpa-onnx` dependency
+- [ ] Bundle Whisper-Small int8 model files into iOS (Bundle Resources) and Android (assets)
+- [ ] Bundle speaker diarization models (pyannote + CAM++) into both platforms
+- [ ] Bundle Opus-MT models (en-vi, ja-en, ko-en, zh-en) into Android assets only
+- [ ] Set up Zustand store skeleton (conversationStore, settingsStore)
+- [ ] Set up SQLite schema (sessions, utterances, translations, meeting_summaries, settings)
+- [ ] Create folder structure per architecture.md v4.0
+- [ ] Verify zero-network configuration (no NSAllowsArbitraryLoads, no INTERNET permission beyond default)
 
 ## Dev Notes
 
-- Architecture is 100% offline. There is NO backend, NO WebSocket, NO FastAPI, NO Redis, NO Docker. The entire app runs on-device. [Source: {ARCH_REF}#ADR-001]
-- React Native CLI (not Expo) is required for full native access to TurboModules, ONNX Runtime, and platform audio APIs. [Source: {ARCH_REF}#Component Architecture]
-- The project structure must anticipate two native modules: `react-native-sherpa-onnx` (existing package) for STT, and `NllbTranslatorModule` (custom TurboModule) for translation. [Source: {ARCH_REF}#Component Architecture]
-- Zustand for state management. SQLite for local persistence. No Redux, no AsyncStorage for structured data. [Source: {PRD_REF}#Technical Constraints]
-
-## Dev Agent Record
-
-### Agent Model Used
-TBD
-
-### Completion Notes List
-- TBD
+- All models are bundled in the app binary — no download/cache/resume logic needed
+- iOS Translation uses Apple Translation Framework (built-in) — no model files to bundle for translation on iOS
+- Android Translation uses Opus-MT tiny models — 4 model directories (~50MB each) bundled in assets
+- Reference device: iPhone 14 Pro Max (6GB RAM, A16 Bionic)

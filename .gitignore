@@ -16,7 +16,6 @@ ios/build/
 .local/
 
 # Large on-device model outputs (download / prepare locally)
-nllb-600m-mobile/
 
 # Android / RN local build caches
 mobile/android/.gradle/

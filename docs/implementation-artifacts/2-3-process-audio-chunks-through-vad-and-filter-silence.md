@@ -1,41 +1,20 @@
-# Story 2.3: Process audio chunks through VAD and filter silence
+# Story 2.3: Process Audio Chunks Through VAD and Filter Silence
 
 Status: ready-for-dev
 
 ## Story
 
-As a user,
-I want background noise and silence filtered out automatically,
-so that I only see transcriptions of actual speech.
+As a user, I want Voice Activity Detection to filter out silence and background noise, so that I don't see false transcriptions when nobody is talking.
 
 ## Acceptance Criteria
 
-1. **Given** room audio with periods of silence and noise
-   **When** VAD processes audio chunks
-   **Then** only chunks containing speech are forwarded to the STT decoder.
-2. **Given** Silero VAD is configured
-   **When** speech onset is detected
-   **Then** detection occurs within 30ms of actual speech start.
-3. **Given** a speaker pauses for >600ms
-   **When** VAD detects end-of-speech
-   **Then** the current utterance is finalized and a new utterance boundary is created.
+1. **Given** room noise without speech, **When** VAD processes audio, **Then** no STT results are emitted.
+2. **Given** speaker finishes a sentence, **When** silence > 600ms, **Then** VAD signals end-of-utterance.
+3. **Given** brief pause (<600ms) within a sentence, **When** speaker continues, **Then** VAD does NOT split the utterance.
 
-## Tasks / Subtasks
+## Tasks
 
-- [ ] Configure Silero VAD via react-native-sherpa-onnx (AC: 1, 2)
-  - [ ] VAD chunk size: 32ms (512 samples at 16kHz).
-  - [ ] Speech detection threshold: configurable, default 0.5.
-  - [ ] Min speech duration: 250ms (reject very short noise bursts).
-- [ ] Implement utterance boundary detection (AC: 3)
-  - [ ] End-of-speech silence threshold: 600ms (configurable).
-  - [ ] When silence exceeds threshold, emit final result for current utterance.
-  - [ ] Reset utterance state for next speech segment.
-- [ ] Test with meeting room audio samples (AC: 1, 2, 3)
-  - [ ] Test with ambient office noise (AC, keyboard, fan).
-  - [ ] Test with cross-talk (multiple speakers).
-  - [ ] Verify no false positives from non-speech sounds.
-
-## Dev Notes
-
-- Silero VAD is bundled with sherpa-onnx. No separate model download needed. [Source: {ARCH_REF}#STT Component]
-- VAD is critical for battery efficiency — STT decoder only processes speech segments, not continuous audio. [Source: {PRD_REF}#NFR-009]
+- [ ] Configure Silero VAD within react-native-sherpa-onnx (32ms chunks)
+- [ ] Set end-of-utterance silence threshold to 600ms
+- [ ] Verify no false positives in typical meeting room noise (HVAC, paper shuffling)
+- [ ] When VAD signals end-of-utterance, capture the utterance audio segment for speaker embedding extraction

@@ -1,43 +1,24 @@
-# Story 4.1: Build meeting screen with two-lane layout
+# Story 4.1: Build Meeting Screen with Two-Lane Layout
 
 Status: ready-for-dev
 
 ## Story
 
-As a user,
-I want a meeting screen with two vertically stacked lanes — Original Transcript and Vietnamese Translation,
-so that I can glance at both the original speech and its translation during the meeting.
+As a user, I want a meeting screen with two vertically stacked lanes — Transcript (blue accent) with speaker + language badges, and Translation (amber accent) — each independently scrollable.
 
 ## Acceptance Criteria
 
-1. **Given** the meeting screen is active
-   **When** speech is being transcribed and translated
-   **Then** two lanes are visible: Transcript Lane (blue left border) at top ~50%, Translation Lane (amber left border) at bottom ~50%.
-2. **Given** both lanes contain content
-   **When** the user scrolls one lane
-   **Then** the other lane is unaffected — each scrolls independently.
-3. **Given** the meeting screen layout
-   **When** rendered on different screen sizes
-   **Then** lanes adapt proportionally (45/55 on small phones, 50/50 on standard, side-by-side on tablet).
+1. **Given** active meeting, **When** speech transcribed and translated, **Then** both lanes update independently at 60fps.
+2. **Given** Transcript Lane entry, **Then** shows: speaker badge (S1 purple, S2 teal) + language badge (EN blue, JA red, KO green, ZH orange, VI purple) + text + timestamp.
+3. **Given** Translation Lane entry, **Then** shows: Vietnamese text + matching speaker color + timestamp. Vietnamese entries show "native" badge instead of translation.
+4. **Given** scrolling one lane, **Then** other lane is unaffected.
 
-## Tasks / Subtasks
+## Tasks
 
-- [ ] Build MeetingScreen layout (AC: 1, 3)
-  - [ ] Two FlashList/FlatList components stacked vertically.
-  - [ ] Transcript Lane: header "ORIGINAL", 2px blue (#3B82F6) left border.
-  - [ ] Translation Lane: header "BẢN DỊCH", 2px amber (#F59E0B) left border.
-  - [ ] Thin divider (1px, 10% opacity) between lanes.
-- [ ] Implement independent scrolling (AC: 2)
-  - [ ] Each lane has its own scroll state.
-  - [ ] Scrolling one lane does not affect the other.
-  - [ ] Use `nestedScrollEnabled` on Android if needed.
-- [ ] Connect to Zustand conversation store (AC: 1)
-  - [ ] TranscriptLane subscribes to `utterances[]` for original text.
-  - [ ] TranslationLane subscribes to `utterances[].translation` for Vietnamese text.
-  - [ ] Use selectors to minimize re-renders.
-
-## Dev Notes
-
-- This is a 2-lane layout. There is NO third lane for AI suggestions — that feature was removed. [Source: {PRD_REF}#What This Product Is NOT]
-- Dark mode first: meeting rooms are dim, screen should not draw attention. [Source: {UX_REF}#Design Principles]
-- Use Reanimated for any layout animations. Keep rendering at 60fps during active transcription. [Source: {UX_REF}#Screen Specifications]
+- [ ] Build MeetingScreen with two FlatList components (50/50 vertical split)
+- [ ] Build TranscriptLane component with SpeakerBadge + LangBadge + text + timestamp
+- [ ] Build TranslationLane component with translated text + matching speaker color
+- [ ] Blue left border (2px) for Transcript, amber (2px) for Translation
+- [ ] Create SpeakerBadge component: S1=#A29BFE, S2=#34D399, S3=#F87171, S4=#FBBF24, S5+=#9895AD
+- [ ] Create LangBadge component: EN=#3B82F6, JA=#EF4444, KO=#22C55E, ZH=#F97316, VI=#8B5CF6
+- [ ] Connect both lanes to Zustand store utterances array via selectors

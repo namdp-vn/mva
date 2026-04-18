@@ -1,9 +1,10 @@
 # Product Requirements Document — Meeting Voice Assistant
 
 **Author:** nghinh  
-**Date:** 2026-04-13  
-**Version:** 3.0 (Offline-Only)  
-**Status:** Approved
+**Date:** 2026-04-18  
+**Version:** 4.0 (Offline — Platform-Native Translation)  
+**Status:** Approved  
+**Change from v3.0:** STT → Whisper-Small (5 languages), NLLB → Apple Translation (iOS) + Opus-MT (Android), speaker diarization added, meeting minutes added, models bundled in app.
 
 ---
 
@@ -11,38 +12,42 @@
 
 ### 1.1 Purpose
 
-This PRD defines the requirements for **Meeting Voice Assistant (MVA)** — a mobile app that enables Vietnamese executives to understand multilingual meetings in real time by performing on-device speech recognition and translation, entirely offline with zero server dependency.
+This PRD defines requirements for **Meeting Voice Assistant (MVA)** — a mobile app enabling Vietnamese executives to understand multilingual meetings in real time via on-device speech recognition, translation, and speaker identification, entirely offline.
 
 ### 1.2 Problem Statement
 
-Senior directors at Vietnamese telecom corporations frequently attend meetings with Japanese, Korean, and international partners. Language barriers cause missed context, delayed responses, and reliance on human interpreters who may not always be available. Existing translation apps require internet connectivity, introduce privacy risks by sending meeting audio to cloud servers, and suffer from network-dependent latency.
+Senior directors at Vietnamese telecom corporations frequently attend meetings with Japanese, Korean, Chinese, and international partners. Language barriers cause missed context, delayed responses, and reliance on human interpreters. Existing translation apps require internet, introduce privacy risks, and suffer from network-dependent latency.
 
 ### 1.3 Solution Overview
 
 MVA runs entirely on the user's smartphone with no internet connection required:
-- **On-device Speech-to-Text**: Captures room audio and transcribes speech in English, Japanese, or Korean using SenseVoice model via `react-native-sherpa-onnx`
-- **On-device Translation**: Translates transcribed text to Vietnamese using NLLB-600M model via ONNX Runtime Mobile
-- **2-lane UI**: Displays original transcript and Vietnamese translation side-by-side in real time
+- **On-device STT**: Captures room audio and transcribes EN/JA/KO/ZH/VI using Whisper-Small via `react-native-sherpa-onnx`
+- **On-device Translation**: Translates to Vietnamese using Apple Translation Framework (iOS) / Opus-MT (Android)
+- **Speaker Diarization**: Labels speakers (Speaker 1, 2, 3...) per utterance using pyannote + CAM++ via sherpa-onnx
+- **Meeting Minutes**: Generates extractive summary, action items, topic segmentation when session ends
+- **2-lane UI**: Displays original transcript + Vietnamese translation with speaker badges
 
-All processing happens on-device. No audio or text ever leaves the phone.
+All models bundled in the app binary — no download step. No audio or text ever leaves the phone.
 
 ### 1.4 What This Product Is NOT
 
-- NOT a conferencing/video-call app (no WebRTC, no LiveKit)
-- NOT a cloud-connected service (no API calls, no server)
-- NOT an AI assistant (no LLM, no response suggestions)
-- NOT a voice interpreter (no text-to-speech output)
+- NOT a conferencing/video-call app
+- NOT a cloud-connected service
+- NOT an AI assistant (no LLM)
+- NOT a voice interpreter (no TTS)
+- NOT a speaker identification system (anonymous labels only)
 
 ### 1.5 Success Metrics
 
 | Metric | Target |
 |--------|--------|
-| STT Word Error Rate (quiet room) | ≤ 15% across EN/JA/KO |
-| Translation display latency | ≤ 2s from end-of-speech |
-| App cold start (model loaded) | ≤ 8s on flagship 2024+ |
-| Battery drain per hour | ≤ 6% on flagship device |
+| STT Word Error Rate (quiet room) | ≤ 15% across EN/JA/KO/ZH/VI |
+| Translation display latency | ≤ 500ms (iOS) / ≤ 1s (Android) |
+| Speaker diarization accuracy (DER) | ≤ 25% for 2-4 speakers |
+| App cold start (models loaded) | ≤ 8s on iPhone 14 Pro Max |
+| RAM usage (all models loaded) | ≤ 700MB (iOS) / ≤ 750MB (Android) |
+| Battery drain per hour | ≤ 6% |
 | App crash rate | < 0.5% per session |
-| User satisfaction (internal beta) | ≥ 4.0/5.0 |
 
 ---
 
@@ -50,21 +55,17 @@ All processing happens on-device. No audio or text ever leaves the phone.
 
 ### 2.1 Primary Persona
 
-**Nghi, 42, Director of Digital Solution Center**
-- Attends 3-5 international meetings per week with Japanese and Korean partners
-- Places personal phone on meeting table to capture room audio
-- Glances at phone screen periodically to read translations
-- Needs privacy — meeting content must never leave the device
-- Travels frequently — cannot rely on corporate network availability
+**Nghi, 42, Director of Digital Solution Center** — attends 3-5 international meetings per week with Japanese, Korean, and Chinese partners. Places iPhone 14 Pro Max on meeting table. Needs privacy, offline operation, and post-meeting review with speaker attribution.
 
 ### 2.2 Use Cases
 
 | ID | Use Case | Description |
 |----|----------|-------------|
-| UC-01 | Live meeting translation | Phone captures room audio, transcribes EN/JA/KO speech, translates to Vietnamese in real time |
-| UC-02 | Offline operation | App works identically with WiFi off, airplane mode on, or in areas with no connectivity |
-| UC-03 | Meeting review | After meeting, user scrolls through transcript + translations to review discussion points |
-| UC-04 | Transcript export | User exports meeting transcript (original + translation) as text file for sharing |
+| UC-01 | Live meeting translation | Transcribe EN/JA/KO/ZH/VI, translate to Vietnamese with speaker labels |
+| UC-02 | Offline operation | Works identically in airplane mode |
+| UC-03 | Meeting review | Review transcript + translations with speaker labels and summary |
+| UC-04 | Meeting minutes | Auto-generated minutes with key points, action items, topics |
+| UC-05 | Transcript export | Export meeting minutes as Markdown file |
 
 ---
 
@@ -72,66 +73,82 @@ All processing happens on-device. No audio or text ever leaves the phone.
 
 ### 3.1 Audio Capture
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-001 | Microphone capture | Must | Capture audio at 16kHz mono PCM via native audio APIs. Audio stays in native layer, never crosses JS bridge. | Given mic permission granted, when speech is present, then PCM chunks are delivered to STT engine within 80ms. |
-| FR-002 | Background capture | Must | Audio capture continues while user scrolls history or changes settings (app in foreground). | Given active session, when user navigates within app, then transcription continues uninterrupted. |
-| FR-003 | Audio privacy | Must | Raw audio is never stored to disk, never transmitted over network. Audio exists only in memory buffer during processing. | Given any app state, when inspecting device storage and network traffic, then zero audio data is found. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-001 | Capture audio at 16kHz mono PCM. Audio stays in native layer. | Must |
+| FR-002 | Audio capture continues while user navigates within app. | Must |
+| FR-003 | Audio never stored to disk, never transmitted. Retained in memory only for speaker embedding, then discarded. | Must |
 
 ### 3.2 Speech-to-Text
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-010 | Streaming STT | Must | On-device streaming speech-to-text using `react-native-sherpa-onnx` with SenseVoice-Small int8 model. | Given model loaded, when speaker talks in EN/JA/KO, then partial text appears within 300ms of speech onset. |
-| FR-011 | Partial results | Must | STT emits partial (intermediate) transcriptions every ~300ms while speech is ongoing. | Given active speech, when 300ms elapses, then updated partial text is emitted to JS layer. |
-| FR-012 | Final results | Must | When VAD detects end-of-utterance (silence > 600ms), STT emits final transcription. | Given speaker finishes sentence, when 600ms silence detected, then final text is emitted and marked as complete. |
-| FR-013 | Language detection | Must | STT auto-detects source language (EN/JA/KO) per utterance and includes language code in result. | Given speech in Japanese, when STT emits result, then `lang: "ja"` is included with ≥ 95% accuracy for utterances ≥ 3 words. |
-| FR-014 | VAD | Must | Voice Activity Detection filters silence, only processing speech segments. | Given room noise without speech, when VAD processes audio, then no false STT results are emitted. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-010 | On-device STT using Whisper-Small int8 via react-native-sherpa-onnx. 5 languages: EN/JA/KO/ZH/VI. | Must |
+| FR-011 | Partial results emitted during speech. | Must |
+| FR-012 | Final result emitted on silence > 600ms. | Must |
+| FR-013 | Auto-detect source language per utterance. | Must |
+| FR-014 | VAD filters silence. | Must |
 
 ### 3.3 Translation
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-020 | On-device translation | Must | Translate STT output to Vietnamese using NLLB-200-distilled-600M (int8 ONNX) running on-device via ONNX Runtime Mobile. | Given final STT result "The quarterly report shows growth", when translation runs, then Vietnamese text appears within 2 seconds. |
-| FR-021 | Supported language pairs | Must | EN→VI, JA→VI, KO→VI using NLLB language codes: `eng_Latn`, `jpn_Jpan`, `kor_Hang` → `vie_Latn`. | Given speech in any of the 3 source languages, when translated, then Vietnamese output is produced with BLEU ≥ 20 on FLORES-200. |
-| FR-022 | Partial translation | Should | When STT partial result reaches ≥ 5 words, translate on-device immediately without waiting for final result. | Given partial STT with 6 words, when translation runs, then partial Vietnamese text appears with "draft" indicator. |
-| FR-023 | Translation cancellation | Must | If new STT result arrives while previous translation is still running, cancel previous and start new. | Given translation in progress, when new STT final arrives, then old translation is cancelled and new one starts within 50ms. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-020 | iOS: Apple Translation Framework (on-device, Neural Engine). Latency ~50-200ms. | Must |
+| FR-020a | Android: Opus-MT tiny (Helsinki-NLP) via ONNX Runtime. EN→VI direct, JA/KO/ZH→EN→VI two-hop. | Must |
+| FR-021 | Supported pairs: EN→VI, JA→VI, KO→VI, ZH→VI. | Must |
+| FR-022 | Partial translation for STT partial ≥ 5 words. | Should |
+| FR-023 | Translation cancellation when new STT arrives. | Must |
+| FR-024 | Vietnamese speech: skip translation, show "native" indicator. | Must |
 
-### 3.4 User Interface
+### 3.4 Speaker Diarization
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-030 | Two-lane layout | Must | Main screen displays two vertically stacked lanes: (1) Original Transcript with language badge, (2) Vietnamese Translation. Each lane scrolls independently. | Given active meeting, when speech is transcribed and translated, then both lanes update independently at 60fps. |
-| FR-031 | Language badge | Must | Each transcript entry shows a language badge (EN/JA/KO) that updates per utterance. | Given Japanese speech detected, when displayed, then "JA" badge appears in red next to the text. |
-| FR-032 | Auto-scroll | Must | Both lanes auto-scroll to latest entry. Manual scroll pauses auto-scroll; "Jump to latest" button appears. | Given user scrolls up, when new entry arrives, then auto-scroll pauses and jump button appears. |
-| FR-033 | Session controls | Must | Start/Stop Meeting button with recording indicator (pulsing dot + elapsed time). | Given user taps Start, then recording dot pulses, timer starts, and STT begins processing. |
-| FR-034 | Draft indicator | Should | Partial/speculative translations show with lower opacity and "draft" label, replaced when final translation arrives. | Given partial translation displayed, when final translation arrives, then text smoothly replaces draft. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-070 | Extract 192-dim embedding per utterance using CAM++ via sherpa-onnx. | Should |
+| FR-071 | Cluster embeddings (cosine similarity, 3-zone threshold, temporal bias) for speaker labels. | Should |
+| FR-072 | Colored speaker badges (S1/S2/S3) in both lanes. | Should |
+| FR-073 | Speaker count in session cards. | Should |
+| FR-074 | Non-fatal: diarization failure does not affect STT/translation. | Must |
+| FR-075 | "Recalculate Speakers" button on Review Screen. | Should |
 
-### 3.5 Session Management
+### 3.5 Meeting Minutes
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-040 | Session persistence | Must | Each meeting session (original text + translations + timestamps) is saved locally on device. | Given meeting ends, when user opens app later, then full session history is available. |
-| FR-041 | Session list | Must | Home screen shows list of past sessions with date, duration, language breakdown. | Given 5 past sessions exist, when viewing home screen, then all 5 are listed with metadata. |
-| FR-042 | Transcript export | Should | Export session as `.txt` file with timestamps, original text, and translations. | Given completed session, when user taps Export, then shareable text file is generated. |
-| FR-043 | Session delete | Must | User can delete individual sessions or all data. | Given user deletes session, when confirmed, then all associated data is permanently removed. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-080 | Extractive summary: top 5-7 sentences by TF-IDF + multi-signal scoring. | Should |
+| FR-081 | Action item detection: multilingual pattern matching. | Should |
+| FR-082 | Topic segmentation: time-gap + keyword-shift based. | Should |
+| FR-083 | Summary card on Review Screen. | Should |
+| FR-084 | Export as Markdown with full meeting minutes format. | Should |
 
-### 3.6 Model Management
+### 3.6 User Interface
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-050 | First-launch download | Must | On first launch, download STT model (~234MB) and Translation model (~800MB) with progress indicator. | Given first launch with internet, when download starts, then progress bar shows per-model status. |
-| FR-051 | Model caching | Must | Downloaded models are cached locally. Subsequent launches load from cache without re-download. | Given models cached, when app launches offline, then models load from local storage. |
-| FR-052 | Model warm-up | Must | After model load, run dummy inference to warm up ONNX Runtime. First real utterance should not have cold-start penalty. | Given models loaded, when first real speech occurs, then latency matches subsequent utterances (no >200ms extra). |
-| FR-053 | Storage management | Should | Settings shows model storage usage. User can delete models to free space. | Given settings open, when viewing storage, then total model size and free space are displayed. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-030 | Two-lane layout: Transcript (with lang + speaker badges) + Translation. Independent scroll. | Must |
+| FR-031 | Language badges: EN=blue, JA=red, KO=green, ZH=orange, VI=purple. | Must |
+| FR-031a | Speaker badges: S1=purple, S2=teal, S3=coral, S4=amber, S5+=gray. | Should |
+| FR-032 | Auto-scroll with "Jump to latest" pill. | Must |
+| FR-033 | Start/Stop controls with recording indicator. | Must |
+| FR-034 | Draft indicator for partial translations. | Should |
 
-### 3.7 Settings
+### 3.7 Session Management
 
-| ID | Title | Priority | Description | Acceptance Criteria |
-|----|-------|----------|-------------|-------------------|
-| FR-060 | Target language | Should | Select target translation language (default: Vietnamese). Future-ready for other targets. | Given settings open, when changing target language, then subsequent translations use new target. |
-| FR-061 | STT model selection | Could | Choose between STT models if multiple are downloaded (SenseVoice, Whisper). | Given 2 models downloaded, when user selects one, then STT uses selected model. |
-| FR-062 | Dev mode | Could | Toggle developer mode showing real-time metrics: STT latency, translation latency, RAM usage. | Given dev mode on, when meeting active, then metrics overlay appears with live numbers. |
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-040 | Save session (text + translations + speaker labels + summary) to SQLite. | Must |
+| FR-041 | Session list with date, duration, languages, speaker count. | Must |
+| FR-042 | Export as Markdown meeting minutes. | Should |
+| FR-043 | Delete individual or all sessions. | Must |
+
+### 3.8 Settings
+
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-060 | Display model info: Whisper-Small, Apple Translation/Opus-MT, CAM++. All bundled. | Should |
+| FR-061 | Show 5 supported languages and 4 translation pairs. | Should |
+| FR-062 | Diarization sensitivity slider. | Should |
+| FR-063 | Dev mode with real-time metrics overlay. | Could |
 
 ---
 
@@ -139,34 +156,31 @@ All processing happens on-device. No audio or text ever leaves the phone.
 
 ### 4.1 Performance
 
-| ID | Metric | Target | Maximum |
-|----|--------|--------|---------|
-| NFR-001 | STT partial latency | 200ms | 400ms |
-| NFR-002 | STT final latency | 200ms | 400ms |
-| NFR-003 | Translation latency (on-device) | 500ms | 2,000ms |
-| NFR-004 | Total end-to-end (speech → translation displayed) | 800ms | 2,500ms |
-| NFR-005 | UI frame rate | 60fps | 30fps minimum |
-| NFR-006 | App cold start (with model load) | 5s | 8s |
-| NFR-007 | RAM usage (all models loaded) | 1.2GB | 1.8GB |
-| NFR-008 | Model download (total, compressed) | 800MB | 1.2GB |
-| NFR-009 | Battery drain per hour | 4% | 6% |
+| Metric | Target | Maximum |
+|--------|--------|---------|
+| STT latency (Whisper-Small) | 300ms | 2,000ms |
+| Translation latency (iOS) | 100ms | 500ms |
+| Translation latency (Android two-hop) | 300ms | 1,000ms |
+| Speaker embedding extraction | 20ms | 50ms |
+| End-to-end (speech → translation) | 600ms | 1,500ms |
+| UI frame rate | 60fps | 30fps min |
+| Cold start | 5s | 8s |
+| RAM - iOS | 600MB | 700MB |
+| RAM - Android | 650MB | 750MB |
+| Meeting minutes generation | 300ms | 500ms |
 
 ### 4.2 Privacy & Security
 
-| ID | Requirement |
-|----|-------------|
-| NFR-010 | Zero network transmission — no audio, text, or metadata is ever sent over any network. App functions identically in airplane mode. |
-| NFR-011 | No telemetry or analytics — no crash reporting, usage tracking, or any data collection. |
-| NFR-012 | Local storage encryption — saved sessions encrypted using platform keychain (iOS Keychain / Android Keystore). |
-| NFR-013 | No third-party SDKs with network access — only offline-capable libraries permitted. |
+- Zero network transmission. Airplane mode compatible.
+- No telemetry or analytics.
+- Local storage encrypted via platform keychain.
+- No third-party SDKs with network access.
+- Audio never written to disk.
 
 ### 4.3 Compatibility
 
-| ID | Requirement |
-|----|-------------|
-| NFR-020 | Android 10+ (API 29) with ≥ 6GB RAM |
-| NFR-021 | iOS 15+ with A14 chip or later (iPhone 12+) |
-| NFR-022 | Minimum 2GB free storage for models |
+- **iOS:** 17.4+ with A15 chip or later (iPhone 13+). Reference: iPhone 14 Pro Max.
+- **Android:** 10+ (API 29) with ≥ 6GB RAM.
 
 ---
 
@@ -177,23 +191,23 @@ All processing happens on-device. No audio or text ever leaves the phone.
 | Component | Technology | Notes |
 |-----------|-----------|-------|
 | Framework | React Native 0.76+ (New Architecture) | TurboModules required |
-| STT | react-native-sherpa-onnx v0.3.3+ | Existing, no custom native code for STT |
-| STT Model | SenseVoice-Small int8 (~234MB) | Auto-detect EN/JA/KO |
-| Translation | ONNX Runtime Mobile + custom TurboModule | New native module required |
-| Translation Model | NLLB-200-distilled-600M int8 ONNX (~800MB) | Split encoder/decoder with KV cache |
-| State | Zustand | Lightweight |
-| Local DB | SQLite (via expo-sqlite or op-sqlite) | Session persistence |
+| STT | Whisper-Small int8 (~244MB) via react-native-sherpa-onnx | 5 languages. Bundled. |
+| Translation (iOS) | Apple Translation Framework | Zero bundle cost. Neural Engine. |
+| Translation (Android) | Opus-MT tiny (25.4M params) × 4 models (~200MB) | CC-BY 4.0. Bundled. |
+| Speaker Diarization | pyannote (~5MB) + CAM++ (~30MB) via sherpa-onnx | Bundled. |
+| Meeting Minutes | TypeScript (TF-IDF, pattern matching) | No AI/LLM. Zero RAM. |
+| State | Zustand | |
+| Local DB | SQLite | |
 
 ### 5.2 Explicitly Excluded
 
 | Excluded | Reason |
 |----------|--------|
-| Any server/backend | 100% offline requirement |
-| WebSocket/HTTP | No network communication |
-| Cloud APIs (Google, AWS, etc.) | Privacy + offline |
-| AI/LLM suggest | Removed from scope — STT + Translation only |
-| LiveKit / WebRTC | Not a conferencing app |
-| Text-to-Speech output | Out of scope for v1 |
+| NLLB-600M | Crashes iPhone 14 Pro Max (650MB RAM). CC-BY-NC license. |
+| SenseVoice-Small | No Vietnamese support. |
+| Model download step | All models bundled. |
+| Server/backend | 100% offline. |
+| AI/LLM summarization | RAM too tight. |
 
 ---
 
@@ -201,9 +215,8 @@ All processing happens on-device. No audio or text ever leaves the phone.
 
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
-| NLLB-600M translation quality KO→VI is poor | Medium | High | Benchmark BLEU on FLORES-200 in week 1. If BLEU < 18, try two-hop KO→EN→VI. |
-| Total RAM (STT + Translation) exceeds device limit | Medium | High | Target ~1.2GB total. Test on devices with 6GB RAM. Unload STT model during translation if needed. |
-| Translation latency > 2s on mid-range devices | High | Medium | Use greedy decoding (not beam search). Limit max_length=128. Use NNAPI/CoreML EP. |
-| Cross-talk degrades STT accuracy | High | Medium | Document as known limitation. App works best with turn-taking speakers. |
-| Model download >1GB deters users | Medium | Low | Support resume-from-offset. Allow pre-loading via USB/ADB for corporate provisioning. |
-| react-native-sherpa-onnx becomes unmaintained | Low | High | Fork at v0.3.3 as baseline. Apache 2.0 license allows forking. |
+| Whisper ~5x slower than SenseVoice | Certain | Medium | ~1-2s per utterance acceptable for meetings. CoreML accelerates on iPhone. |
+| Apple Translation pack not pre-installed | Medium | Medium | Trigger download on first use. One-time ~50MB per pair. |
+| Opus-MT two-hop quality lower | Medium | Medium | EN pivot well-supported. Acceptable for comprehension. |
+| Speaker diarization degrades >6 speakers | Medium | Low | Documented limitation. Works best 2-4 speakers. |
+| App size ~550MB (Android) | Low | Medium | Essential for offline. No reduction possible. |

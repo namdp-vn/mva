@@ -27,11 +27,11 @@ const MOCK_MODEL: ModelInfo = {
 };
 
 const PLATFORM_TRANSLATION_MODEL: ModelInfo = {
-  id: Platform.OS === 'ios' ? 'apple-translation' : 'opus-mt',
-  name: Platform.OS === 'ios' ? 'Apple Translation' : 'Helsinki-NLP Opus-MT',
+  id: Platform.OS === 'ios' ? 'apple-translation' : 'ml-kit-translation',
+  name: Platform.OS === 'ios' ? 'Apple Translation' : 'Google ML Kit Translation',
   version: '1.0.0',
   quality: 'int8',
-  diskFootprintMB: Platform.OS === 'ios' ? 0 : 100, // iOS uses built-in framework, Android uses ~100MB
+  diskFootprintMB: Platform.OS === 'ios' ? 0 : 30, // iOS uses built-in framework, Android uses ~30MB per language pack
   languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
   inferenceSpeedRTF: 0.1,
   isOptimizedFor: ['iPhone 15 Pro'],
@@ -67,33 +67,49 @@ async function checkLanguagePacksStatus(targetLang: string): Promise<{installed:
   const missing: string[] = [];
   let allSupported = true;
 
-  if (Platform.OS !== 'ios') {
-    return {installed: [], missing: [], allSupported: true};
-  }
-
-  const nativeModule = getNativeAppleTranslator();
-  if (!nativeModule || typeof nativeModule.getLanguagePackStatus !== 'function') {
-    return {installed: [], missing: [], allSupported: true};
-  }
-
   const packsToCheck = getLanguagePacksToCheck(targetLang);
 
-  for (const pack of packsToCheck) {
-    try {
-      const status = await nativeModule.getLanguagePackStatus(pack.srcLang, targetLang);
-      if (status === 'installed') {
-        installed.push(pack.displayName);
-      } else if (status === 'available') {
-        missing.push(pack.displayName);
-      } else if (status === 'unsupported') {
-        allSupported = false;
-        missing.push(`${pack.displayName} (not supported)`);
-      } else {
+  if (Platform.OS === 'ios') {
+    const nativeModule = getNativeAppleTranslator();
+    if (!nativeModule || typeof nativeModule.getLanguagePackStatus !== 'function') {
+      return {installed: [], missing: [], allSupported: true};
+    }
+
+    for (const pack of packsToCheck) {
+      try {
+        const status = await nativeModule.getLanguagePackStatus(pack.srcLang, targetLang);
+        if (status === 'installed') {
+          installed.push(pack.displayName);
+        } else if (status === 'available') {
+          missing.push(pack.displayName);
+        } else if (status === 'unsupported') {
+          allSupported = false;
+          missing.push(`${pack.displayName} (not supported)`);
+        } else {
+          missing.push(pack.displayName);
+        }
+      } catch (error) {
+        warnLog(`[SplashScreen] Failed to check ${pack.displayName}:`, error);
         missing.push(pack.displayName);
       }
+    }
+  } else {
+    // Android with ML Kit
+    try {
+      const packStatus = await translationService.getPackStatus();
+      for (const pack of packsToCheck) {
+        const key = `${pack.srcLang}-vi`;
+        if (packStatus[key]) {
+          installed.push(pack.displayName);
+        } else {
+          missing.push(pack.displayName);
+        }
+      }
     } catch (error) {
-      warnLog(`[SplashScreen] Failed to check ${pack.displayName}:`, error);
-      missing.push(pack.displayName);
+      warnLog(`[SplashScreen] Failed to check ML Kit language packs:`, error);
+      // On Android, if check fails, we still allow proceeding
+      // ML Kit will auto-download on first use
+      return {installed: [], missing: [], allSupported: true};
     }
   }
 
@@ -152,48 +168,47 @@ export const SplashScreen: React.FC = () => {
           setModelReady(MOCK_MODEL); // Still mark ready so we can try transcript-only mode
         }
 
-        // Step 2: Initialize platform-native translation (Apple Translation on iOS, Opus-MT on Android)
+        // Step 2: Initialize platform-native translation (Apple Translation on iOS, ML Kit on Android)
         // Apple Translation requires language packs to be downloaded on iOS 26+
-        // Android bundles Opus-MT models in app assets
+        // ML Kit auto-downloads language packs on first use
         setTranslatorModelDownloading(PLATFORM_TRANSLATION_MODEL);
         try {
-          // Check language packs on iOS
-          if (Platform.OS === 'ios') {
-            const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
-            warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
+          // Check language packs availability
+          const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
+          warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
 
-            if (missing.length > 0) {
-              // Show alert to user asking them to download language packs
-              await new Promise<void>((resolve) => {
-                const message = allSupported
-                  ? `To enable real-time translation to ${TARGET_LANGUAGE_LABELS[targetLanguage] || targetLanguage}, please download the following language packs:\n\n${missing.join('\n')}\n\nGo to Settings → General → Language & Region → Download Languages`
-                  : `Some language pairs are not supported on this device:\n\n${missing.join('\n')}\n\nTranslation will only work for installed languages.`;
+          if (missing.length > 0 && Platform.OS === 'ios') {
+            // Show alert to user asking them to download language packs (iOS only)
+            // Android ML Kit auto-downloads, so no user prompt needed
+            await new Promise<void>((resolve) => {
+              const message = allSupported
+                ? `To enable real-time translation to ${TARGET_LANGUAGE_LABELS[targetLanguage] || targetLanguage}, please download the following language packs:\n\n${missing.join('\n')}\n\nGo to Settings → General → Language & Region → Download Languages`
+                : `Some language pairs are not supported on this device:\n\n${missing.join('\n')}\n\nTranslation will only work for installed languages.`;
 
-                Alert.alert(
-                  'Translation Languages Required',
-                  message,
-                  [
-                    {
-                      text: allSupported ? 'Open Settings' : 'OK',
-                      onPress: () => {
-                        if (allSupported) {
-                          openLanguageSettings();
-                        }
-                        resolve();
-                      },
+              Alert.alert(
+                'Translation Languages Required',
+                message,
+                [
+                  {
+                    text: allSupported ? 'Open Settings' : 'OK',
+                    onPress: () => {
+                      if (allSupported) {
+                        openLanguageSettings();
+                      }
+                      resolve();
                     },
-                    {
-                      text: 'Continue',
-                      onPress: () => {
-                        warnLog('[SplashScreen] User acknowledged language pack requirement');
-                        resolve();
-                      },
+                  },
+                  {
+                    text: 'Continue',
+                    onPress: () => {
+                      warnLog('[SplashScreen] User acknowledged language pack requirement');
+                      resolve();
                     },
-                  ],
-                  {cancelable: false},
-                );
-              });
-            }
+                  },
+                ],
+                {cancelable: false},
+              );
+            });
           }
 
           const translatorReady = await translationService.initialize();

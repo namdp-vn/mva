@@ -8,7 +8,6 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.module.annotations.ReactModule
-import com.facebook.react.turbomodule.core.interfaces.TurboModule
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -18,7 +17,7 @@ import javax.crypto.spec.GCMParameterSpec
 
 @ReactModule(name = SecureStorageBridgeModule.NAME)
 class SecureStorageBridgeModule(reactContext: ReactApplicationContext) :
-  ReactContextBaseJavaModule(reactContext), TurboModule {
+  ReactContextBaseJavaModule(reactContext) {
 
   override fun getName(): String = NAME
 

@@ -1,9 +1,10 @@
 # Architecture Decision Document — Meeting Voice Assistant
 
 **Author:** nghinh  
-**Date:** 2026-04-13  
-**Version:** 3.0 (Offline-Only)  
-**Status:** Approved
+**Date:** 2026-04-18  
+**Version:** 4.0 (Offline — Platform-Native Translation)  
+**Status:** Approved  
+**Change from v3.0:** Whisper-Small replaces SenseVoice, Apple Translation + Opus-MT replace NLLB, speaker diarization added, meeting minutes added, models bundled in app.
 
 ---
 
@@ -11,50 +12,55 @@
 
 ### 1.1 Design Philosophy
 
-**Everything on-device, nothing on the network.** MVA runs as a self-contained mobile application with zero server dependencies. All AI models execute on the phone's CPU/NPU. No audio or text ever leaves the device boundary.
+**Everything on-device, nothing on the network.** MVA runs as a self-contained mobile application with zero server dependencies. All AI models execute on the phone's CPU/NPU. No audio or text ever leaves the device boundary. All models are bundled in the app binary — no download step for users.
 
 ### 1.2 High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Mobile Device (React Native)              │
-├─────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │                   JS Layer                            │   │
-│  │  ┌─────────────┐ ┌──────────────┐ ┌──────────────┐  │   │
-│  │  │  Zustand     │ │ Pipeline     │ │  UI (2-lane) │  │   │
-│  │  │  Store       │ │ Orchestrator │ │  Transcript  │  │   │
-│  │  └─────────────┘ └──────────────┘ │  Translation │  │   │
-│  │                                    └──────────────┘  │   │
-│  └────────────┬──────────────┬──────────────────────────┘   │
-│               │ TurboModule  │ TurboModule                   │
-│  ┌────────────▼──────────┐ ┌▼──────────────────────────┐   │
-│  │  react-native-        │ │  NllbTranslatorModule     │   │
-│  │  sherpa-onnx           │ │  (Custom TurboModule)     │   │
-│  │  ┌──────────────────┐ │ │  ┌──────────────────────┐ │   │
-│  │  │ Audio Capture     │ │ │  │ ONNX Runtime Mobile  │ │   │
-│  │  │ (AVAudioEngine /  │ │ │  │ + NLLB-600M int8    │ │   │
-│  │  │  AudioRecord)     │ │ │  │ + SentencePiece      │ │   │
-│  │  ├──────────────────┤ │ │  └──────────────────────┘ │   │
-│  │  │ Silero VAD        │ │ │  Execution Providers:     │   │
-│  │  ├──────────────────┤ │ │  - NNAPI (Android)        │   │
-│  │  │ SenseVoice-Small  │ │ │  - CoreML (iOS)           │   │
-│  │  │ int8 (234MB)      │ │ │  - CPU/XNNPACK fallback   │   │
-│  │  └──────────────────┘ │ └──────────────────────────┘   │
-│  │  Native C++ Layer     │   Native Kotlin/Swift Layer     │
-│  └───────────────────────┘ └──────────────────────────────┘ │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Local Storage (SQLite)                               │   │
-│  │  Sessions, Utterances, Translations, Settings         │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Model Storage (~1GB)                                 │   │
-│  │  sensevoice-small-int8/ (234MB)                       │   │
-│  │  nllb-600m-int8/        (800MB compressed)            │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Mobile Device (React Native)                   │
+├──────────────────────────────────────────────────────────────────┤
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                        JS Layer                             │  │
+│  │  ┌───────────┐ ┌────────────────┐ ┌──────────────────┐    │  │
+│  │  │ Zustand    │ │ Pipeline       │ │ UI (2-lane)      │    │  │
+│  │  │ Store      │ │ Orchestrator   │ │ + Speaker Badges │    │  │
+│  │  └───────────┘ └────────────────┘ │ + Summary Card   │    │  │
+│  │                                    └──────────────────┘    │  │
+│  │  ┌────────────────────────────────────────────────────┐    │  │
+│  │  │ MeetingSummarizer (TypeScript)                      │    │  │
+│  │  │ KeywordExtractor + SentenceScorer + ActionDetector  │    │  │
+│  │  │ + TopicSegmenter + SpeakerClusterService            │    │  │
+│  │  └────────────────────────────────────────────────────┘    │  │
+│  └───────┬───────────────┬──────────────────┬────────────────┘  │
+│          │ TurboModule    │ TurboModule       │ TurboModule      │
+│  ┌───────▼───────────┐ ┌─▼────────────────┐ ┌▼───────────────┐ │
+│  │ react-native-     │ │ TranslationSvc   │ │ SpeakerEmbed   │ │
+│  │ sherpa-onnx        │ │ (platform-split) │ │ Module         │ │
+│  │ ┌───────────────┐ │ │                  │ │ ┌────────────┐ │ │
+│  │ │ Audio Capture  │ │ │ iOS:             │ │ │ CAM++      │ │ │
+│  │ │ + Silero VAD   │ │ │  Apple Translate │ │ │ 30MB ONNX  │ │ │
+│  │ ├───────────────┤ │ │  Framework       │ │ │ + pyannote │ │ │
+│  │ │ Whisper-Small  │ │ │  (~30-50MB RAM)  │ │ │ 5MB ONNX   │ │ │
+│  │ │ int8 (244MB)   │ │ │                  │ │ └────────────┘ │ │
+│  │ │ EN/JA/KO/ZH/VI │ │ │ Android:         │ │                │ │
+│  │ └───────────────┘ │ │  Opus-MT tiny    │ │ 192-dim embed  │ │
+│  │ Native C++ Layer   │ │  4 × ~50MB ONNX │ │ per utterance  │ │
+│  └───────────────────┘ │  (~120MB RAM)    │ └────────────────┘ │
+│                         └──────────────────┘                     │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  Local Storage (SQLite)                                     │  │
+│  │  Sessions, Utterances (+ speaker_id), Translations,         │  │
+│  │  Meeting Summaries, Settings                                │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  Bundled Models (in app binary, no download)                │  │
+│  │  whisper-small-int8/      (244MB)                           │  │
+│  │  speaker-diarization/     (35MB)                            │  │
+│  │  opus-mt/ (Android only)  (200MB)                           │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
 
 Network: NONE (airplane mode compatible)
 Server: NONE
@@ -62,113 +68,133 @@ Server: NONE
 
 ### 1.3 Data Flow — Single Utterance
 
-```mermaid
-sequenceDiagram
-    participant MIC as Microphone
-    participant STT as sherpa-onnx<br/>(Native C++)
-    participant JS as JS Layer
-    participant NLLB as NllbTranslator<br/>(Native Kotlin/Swift)
-    participant UI as 2-Lane UI
-    participant DB as SQLite
-
-    MIC->>STT: PCM chunks (80ms)
-    STT->>STT: VAD → speech detected
-    STT-->>JS: stt_partial (text, lang)
-    JS-->>UI: Update Transcript Lane
-    
-    Note over JS,NLLB: Partial ≥ 5 words → translate
-    JS->>NLLB: translate(partial, lang)
-    NLLB-->>JS: draft translation (~500-1500ms)
-    JS-->>UI: Update Translation Lane (draft)
-
-    STT->>JS: stt_final (text, lang)
-    JS-->>UI: Update Transcript Lane (final)
-    JS->>NLLB: translate(final, lang)
-    NLLB-->>JS: final translation (~500-1500ms)
-    JS-->>UI: Replace draft with final
-    JS->>DB: Persist utterance + translation
+```
+MIC → PCM 16kHz → Silero VAD → Whisper-Small → text + lang
+                                     │
+                          ┌──────────┼──────────┐
+                          ▼          ▼          ▼
+                    JS Store    Translation   Speaker Embed
+                    (Zustand)   (platform)    (CAM++)
+                          │          │          │
+                          ▼          ▼          ▼
+                    Transcript   Translation  Speaker Label
+                    Lane UI      Lane UI      (S1/S2/S3)
+                          │          │          │
+                          └──────────┼──────────┘
+                                     ▼
+                                  SQLite
 ```
 
 ---
 
 ## 2. Component Architecture
 
-### 2.1 STT Component — react-native-sherpa-onnx
-
-**Decision:** Use existing `react-native-sherpa-onnx` package (XDcobra, v0.3.3+). No custom native code for STT.
+### 2.1 STT Component — Whisper-Small via react-native-sherpa-onnx
 
 | Aspect | Detail |
 |--------|--------|
-| Package | `react-native-sherpa-onnx` v0.3.3+ |
-| Architecture | TurboModule (New Architecture) |
-| Model | SenseVoice-Small int8 (~234MB) |
-| Languages | EN, JA, KO auto-detect |
+| Package | `react-native-sherpa-onnx` |
+| Model | Whisper-Small int8 (~244MB: encoder 50MB + decoder 194MB) |
+| Languages | EN, JA, KO, ZH, VI auto-detect (99 languages supported) |
 | Audio | 16kHz mono PCM, 80ms chunks |
-| VAD | Silero VAD (bundled), 32ms chunks |
-| RTF | 0.05 (iPhone 15 Pro), 0.08 (Android flagship) |
+| VAD | Silero VAD (bundled) |
+| Architecture | Autoregressive (seq2seq) |
+| Latency | ~1-2s per utterance on iPhone 14 Pro Max |
 | RAM | ~400-500MB |
+| Task | `transcribe` (NOT translate — translation handled separately) |
+| Bundled | Yes — in app binary, no download |
 
-**Audio pipeline stays entirely in native C++ layer.** Only text results cross the TurboModule bridge to JS.
+**Trade-off vs SenseVoice-Small:** Whisper is ~5x slower (autoregressive vs non-autoregressive) but gains Vietnamese + Chinese support. Acceptable for meeting pace.
 
-### 2.2 Translation Component — NllbTranslatorModule (NEW)
+### 2.2 Translation Component — Platform-Native
 
-**Decision:** Create a custom TurboModule wrapping ONNX Runtime Mobile for NLLB-600M.
+#### iOS: Apple Translation Framework
 
 | Aspect | Detail |
 |--------|--------|
-| Model | NLLB-200-distilled-600M int8 ONNX |
-| Model files | `encoder_model_quantized.onnx` (~350MB), `decoder_model_quantized.onnx` (~200MB), `decoder_with_past_model_quantized.onnx` (~200MB), `sentencepiece.bpe.model` (~5MB) |
-| Download size | ~800MB compressed |
-| Runtime RAM | ~500-800MB |
-| Inference | Greedy decoding (argmax), max_length=128 |
-| KV Cache | Yes — via split decoder (no-cache + with-past) |
-| Tokenizer | Pure Kotlin/Swift SentencePiece BPE (no JNI) |
-| Execution Providers | NNAPI (Android), CoreML (iOS), CPU/XNNPACK fallback |
-| Latency | ~500-1500ms per sentence (device-dependent) |
+| Framework | `Translation` (iOS 17.4+) |
+| API | `TranslationSession.translate(text)` |
+| Engine | Apple Neural Engine (16-core on A16) |
+| RAM | ~30-50MB (managed by OS, not app) |
+| Latency | 50-200ms per sentence |
+| Languages | EN↔VI, JA↔VI, KO↔VI, ZH↔VI — all supported natively |
+| Model files | None in app bundle — language packs managed by iOS Settings |
+| License | Free for all iOS apps |
+| Offline | Yes, after language packs downloaded (one-time ~50MB per pair) |
 
-**Why split decoder into 2 ONNX files:**
-- ONNX Runtime Mobile crashes with If-node in merged decoder
-- `decoder_model_quantized.onnx` — runs for FIRST token only (no KV cache input)
-- `decoder_with_past_model_quantized.onnx` — runs for subsequent tokens using KV cache from previous step
-- This pattern is proven by both RTranslator and InstantVoiceTranslate
+#### Android: Opus-MT Tiny (Helsinki-NLP)
 
-**Language code mapping:**
+| Aspect | Detail |
+|--------|--------|
+| Architecture | MarianMT (Transformer encoder-decoder) |
+| Parameters | 25.4M per model |
+| Models needed | opus-mt-en-vi, opus-mt-ja-en, opus-mt-ko-en, opus-mt-zh-en |
+| Model size | ~50MB each (int8 ONNX), ~200MB total |
+| RAM | ~80MB per loaded model, max 2 loaded at once (~160MB) |
+| Strategy | EN→VI direct; JA/KO/ZH→EN→VI two-hop |
+| Latency | 100-300ms (direct) / 200-500ms (two-hop) |
+| License | CC-BY 4.0 (commercial OK) |
+| Bundled | Yes — in app binary, no download |
 
-| Source | NLLB Code | Target | NLLB Code |
-|--------|-----------|--------|-----------|
-| English | `eng_Latn` | Vietnamese | `vie_Latn` |
-| Japanese | `jpn_Jpan` | Vietnamese | `vie_Latn` |
-| Korean | `kor_Hang` | Vietnamese | `vie_Latn` |
+**Model swapping:** Only `opus-mt-en-vi` (always needed) + the active source-to-EN model are loaded. When STT detects language change (e.g., JA→KO), the old source model is unloaded and new one loaded (~200ms swap).
 
-### 2.3 Pipeline Orchestrator
+### 2.3 Speaker Diarization — pyannote + CAM++ via sherpa-onnx
 
-**Decision:** TypeScript orchestrator in JS layer coordinates STT events → translation → UI updates.
+| Aspect | Detail |
+|--------|--------|
+| Segmentation model | pyannote-segmentation-3.0 (~5MB ONNX) |
+| Embedding model | 3dspeaker_speech_campplus_sv_en_voxceleb_16k (~30MB ONNX) |
+| Output | 192-dim float vector per utterance |
+| Clustering | TypeScript — cosine similarity, 3-zone threshold, temporal bias, auto-merge |
+| RAM | ~70MB total |
+| Latency | ~10-30ms per utterance |
+| Bundled | Yes — in app binary |
+| Non-blocking | Runs in parallel with translation. Failure does not affect core pipeline. |
+
+### 2.4 Meeting Minutes — TypeScript (No AI)
+
+| Component | Purpose | Latency |
+|-----------|---------|---------|
+| KeywordExtractor | TF-IDF on Vietnamese translations | <100ms |
+| SentenceScorer | 6-signal scoring (keywords, length, position, numbers, action, question) | <50ms |
+| ActionItemDetector | Multilingual pattern matching ("need to", "cần phải", "してください") | <50ms |
+| TopicSegmenter | Time-gap + keyword-shift segmentation | <30ms |
+| MeetingSummarizer | Orchestrates above, generates structured minutes | <500ms total |
+
+Zero additional RAM. Pure text processing on data already in SQLite.
+
+### 2.5 Pipeline Orchestrator
 
 Key behaviors:
-1. **STT partial (≥5 words)** → fire on-device translation, display as "draft" (lower opacity)
-2. **STT final** → cancel any in-progress partial translation, fire final translation, display as confirmed
-3. **Translation concurrency** — if new STT arrives while translation is running, cancel old translation (version counter pattern)
-4. **Sequential resource access** — STT and NLLB share device CPU. STT runs continuously; NLLB runs on-demand between STT emissions. No contention because STT partial emissions are ~300ms apart, and NLLB runs during that gap.
+1. **STT partial (≥5 words)** → fire translation, display as "draft"
+2. **STT final** → cancel partial, fire final translation + speaker embedding extraction
+3. **Speaker diarization** → runs in parallel with translation, assigns label after embedding extracted
+4. **Vietnamese detected** → skip translation, copy to Translation Lane with "native" indicator
+5. **Every 10 utterances** → recalculate all speaker clusters retroactively
+6. **Session end** → generate meeting minutes (MeetingSummarizer), save to SQLite
 
-### 2.4 Local Storage — SQLite
+### 2.6 Local Storage — SQLite
 
-| Table | Columns | Purpose |
-|-------|---------|---------|
+| Table | Key Columns | Purpose |
+|-------|-------------|---------|
 | `sessions` | id, started_at, ended_at, status | Meeting sessions |
-| `utterances` | id, session_id, text, lang, is_final, timestamp | STT results |
-| `translations` | id, utterance_id, text, is_draft, latency_ms | Vietnamese translations |
+| `utterances` | id, session_id, text, lang, is_final, speaker_id, speaker_label, timestamp | STT results with speaker |
+| `translations` | id, utterance_id, text, is_draft, source ('device'/'native'), latency_ms | Translations |
+| `meeting_summaries` | id, session_id, key_points, action_items, keywords, topics, speaker_stats | Generated minutes |
 | `settings` | key, value | User preferences |
 
-### 2.5 UI Architecture
+### 2.7 UI Architecture
 
-**2-lane layout** (down from 3-lane in previous architecture — AI suggest lane removed):
+**2-lane layout** with speaker badges:
 
 | Lane | Content | Color Accent |
 |------|---------|-------------|
-| Transcript | Original text (EN/JA/KO) with language badge + timestamp | Blue (#3B82F6) |
-| Translation | Vietnamese translation (draft → final smooth replacement) | Amber (#F59E0B) |
+| Transcript | Original text with speaker badge (S1/S2) + language badge (EN/JA/KO/ZH/VI) + timestamp | Blue (#3B82F6) |
+| Translation | Vietnamese translation (draft → final) with matching speaker color | Amber (#F59E0B) |
 
-State management: Zustand store with `utterances[]` array. Each utterance has optional `translation` field. UI components subscribe to specific utterance updates via selectors.
+Language badge colors: EN=#3B82F6 (blue), JA=#EF4444 (red), KO=#22C55E (green), ZH=#F97316 (orange), VI=#8B5CF6 (purple).
+
+Speaker badge colors: S1=#A29BFE (purple), S2=#34D399 (teal), S3=#F87171 (coral), S4=#FBBF24 (amber), S5+=#9895AD (gray).
 
 ---
 
@@ -176,44 +202,42 @@ State management: Zustand store with `utterances[]` array. Each utterance has op
 
 ### ADR-001: 100% Offline — No Server
 
-**Context:** Previous architecture (v2.0-2.1) used self-hosted FastAPI server for NLLB-1.3B translation + vLLM for AI suggest. Network round-trip added 200-500ms latency.
-
 **Decision:** Run all inference on-device. Remove all server components.
+**Consequences:** Zero latency, airplane mode, absolute privacy. Trade-off: lower model quality than cloud.
 
+### ADR-002: Whisper-Small over SenseVoice-Small
+
+**Context:** SenseVoice-Small supports only ZH/EN/JA/KO/YUE — no Vietnamese.
+**Decision:** Use Whisper-Small int8 (~244MB) which supports 99 languages including all 5 targets (EN/JA/KO/ZH/VI).
+**Trade-off:** ~5x slower than SenseVoice (autoregressive vs non-autoregressive). Acceptable for meeting pace on iPhone 14 Pro Max with CoreML.
+
+### ADR-003: Platform-Native Translation over NLLB
+
+**Context:** NLLB-600M consumes ~650MB RAM, crashes iPhone 14 Pro Max. Also uses CC-BY-NC license (non-commercial only).
+**Decision:** iOS uses Apple Translation Framework (built-in, ~30-50MB RAM, 50-200ms). Android uses Opus-MT tiny (25.4M params, ~160MB RAM for 2 models, CC-BY 4.0).
 **Consequences:**
-- (+) Zero network latency for translation
-- (+) Works in airplane mode, no WiFi needed
-- (+) Absolute privacy — nothing leaves device
-- (+) No infrastructure to maintain
-- (-) Translation quality slightly lower (600M vs 1.3B model)
-- (-) Translation speed depends on device CPU (~500-1500ms vs ~50ms on GPU)
-- (-) AI suggest feature dropped
+- (+) RAM reduced from ~650MB to ~50MB (iOS) / ~160MB (Android)
+- (+) Latency improved 3-10x on iOS
+- (+) License issue resolved (NLLB CC-BY-NC → Apple free / Opus-MT CC-BY 4.0)
+- (+) App bundle reduced by 600-800MB
+- (-) Android requires two-hop for JA/KO/ZH (slightly lower quality)
+- (-) iOS requires one-time language pack download (~50MB per pair, managed by iOS)
 
-### ADR-002: NLLB-600M over NLLB-1.3B
+### ADR-004: Models Bundled in App Binary
 
-**Context:** NLLB-1.3B provides better translation quality but requires ~2GB RAM and ~3-5s inference on mobile CPU.
+**Context:** Download step creates friction, requires internet on first launch, needs resume logic.
+**Decision:** Bundle all models in app binary. User installs and everything is ready immediately.
+**Trade-off:** Larger install size (~350MB iOS / ~550MB Android) but zero first-launch friction.
 
-**Decision:** Use NLLB-200-distilled-600M (int8).
+### ADR-005: Speaker Diarization (Anonymous Labels)
 
-**Rationale:** 600M fits in ~500-800MB RAM alongside SenseVoice STT (~400-500MB). Total ~1.2GB is feasible on phones with 6GB+ RAM. BLEU score difference is ~2-4 points — acceptable for meeting comprehension (not certified translation).
+**Decision:** Add per-utterance speaker labels (Speaker 1, 2, 3...) using pyannote + CAM++ bundled models (~35MB, ~70MB RAM).
+**Non-blocking:** If diarization fails, utterance still displays normally.
 
-### ADR-003: Greedy Decoding over Beam Search
+### ADR-006: Extractive Meeting Minutes (No AI)
 
-**Decision:** Use argmax (greedy) decoding for on-device translation, not beam search.
-
-**Rationale:** Beam search (beam=4) is 3-5x slower on CPU with minimal quality improvement for 600M model. For meeting context where speed matters more than literary translation quality, greedy decoding provides the best latency/quality tradeoff.
-
-### ADR-004: Split Decoder Architecture
-
-**Decision:** Split NLLB decoder into 2 separate ONNX files (no-cache + with-past).
-
-**Rationale:** ONNX Runtime Mobile crashes on merged decoder containing If-nodes. Split architecture also enables KV cache which provides 5-10x speedup for longer sentences. This pattern is battle-tested by RTranslator (9.7K stars) and InstantVoiceTranslate.
-
-### ADR-005: AI Suggest Removed from Scope
-
-**Decision:** Remove AI response suggestion feature entirely.
-
-**Rationale:** Running an LLM on-device (even Qwen2-0.5B at ~1GB) would push total RAM to ~2.2GB+, leaving insufficient headroom for OS and other apps. The core value proposition — understanding what meeting participants are saying — is fully served by STT + Translation alone.
+**Decision:** Use pure TypeScript text processing (TF-IDF, pattern matching) for meeting minutes instead of LLM.
+**Rationale:** LLM (even Qwen2-0.5B at ~500MB RAM) would exceed device budget. Extractive approach uses zero additional RAM and completes in <500ms.
 
 ---
 
@@ -222,50 +246,66 @@ State management: Zustand store with `utterances[]` array. Each utterance has op
 ```
 meeting-voice-assistant/
 ├── android/
-│   └── app/src/main/java/com/mva/nllb/
-│       ├── NllbTranslatorModule.kt         # TurboModule entry
-│       ├── NllbTranslatorHelper.kt         # ONNX Runtime inference
-│       ├── SentencePieceTokenizer.kt       # Pure Kotlin BPE
-│       └── NllbTranslatorPackage.kt        # Module registration
+│   └── app/src/main/
+│       ├── assets/models/
+│       │   ├── whisper-small-int8/         # STT (~244MB)
+│       │   ├── speaker-diarization/        # pyannote + CAM++ (~35MB)
+│       │   └── opus-mt/                    # Translation (~200MB)
+│       │       ├── en-vi/                  # Direct EN→VI
+│       │       ├── ja-en/                  # JA→EN (for two-hop)
+│       │       ├── ko-en/                  # KO→EN
+│       │       └── zh-en/                  # ZH→EN
+│       └── java/com/mva/translation/
+│           ├── OpusMtTranslatorModule.kt
+│           ├── OpusMtTranslatorHelper.kt
+│           ├── OpusMtTokenizer.kt
+│           └── OpusMtTranslatorPackage.kt
 ├── ios/
-│   ├── NllbTranslatorModule.swift          # TurboModule entry
-│   ├── NllbTranslatorHelper.swift          # ONNX Runtime inference
-│   ├── SentencePieceTokenizer.swift        # Pure Swift BPE
-│   └── NllbTranslatorModule.mm            # ObjC++ bridge
+│   ├── Models/
+│   │   ├── whisper-small-int8/             # STT (~244MB)
+│   │   └── speaker-diarization/            # pyannote + CAM++ (~35MB)
+│   │   # No translation models — Apple Translation is built into iOS
+│   ├── AppleTranslatorModule.swift
+│   └── AppleTranslatorModule.mm
 ├── src/
 │   ├── native/
-│   │   └── NativeNllbTranslator.ts         # TurboModule TS interface
-│   ├── hooks/
-│   │   ├── useSherpaStream.ts              # STT streaming hook
-│   │   └── useMeetingPipeline.ts           # Orchestrate STT → translate → UI
+│   │   ├── NativeAppleTranslator.ts        # iOS TurboModule interface
+│   │   └── NativeOpusMtTranslator.ts       # Android TurboModule interface
 │   ├── services/
-│   │   ├── OnDeviceTranslator.ts           # Wrap NllbTranslator with cancellation
-│   │   ├── PipelineOrchestrator.ts         # Coordinate STT → translation
-│   │   └── ModelManager.ts                 # Download + cache + warm-up
+│   │   ├── TranslationService.ts           # Platform-agnostic wrapper
+│   │   ├── PipelineOrchestrator.ts         # STT → translate → diarize → UI
+│   │   ├── SpeakerClusterService.ts        # Cosine similarity clustering
+│   │   ├── SpeakerEmbeddingService.ts      # Wrap native embedding extraction
+│   │   ├── MeetingSummarizer.ts            # Orchestrates minutes generation
+│   │   ├── KeywordExtractor.ts             # TF-IDF keywords
+│   │   ├── SentenceScorer.ts               # Multi-signal sentence ranking
+│   │   ├── ActionItemDetector.ts           # Multilingual pattern matching
+│   │   └── TopicSegmenter.ts               # Time-gap topic grouping
 │   ├── screens/
-│   │   ├── HomeScreen.tsx                  # Session list + Start button
-│   │   ├── MeetingScreen.tsx               # 2-lane live view
-│   │   ├── ReviewScreen.tsx                # Past session detail
-│   │   └── SettingsScreen.tsx              # Model management + preferences
+│   │   ├── HomeScreen.tsx
+│   │   ├── MeetingScreen.tsx               # 2-lane with speaker badges
+│   │   ├── ReviewScreen.tsx                # Summary card + transcript + export
+│   │   ├── SettingsScreen.tsx
+│   │   └── SplashScreen.tsx                # Model warm-up (no download)
 │   ├── components/
-│   │   ├── TranscriptLane.tsx              # Original text lane
-│   │   ├── TranslationLane.tsx             # Vietnamese translation lane
-│   │   ├── SessionCard.tsx                 # Home screen session item
-│   │   ├── LangBadge.tsx                   # EN/JA/KO badge
-│   │   ├── DraftIndicator.tsx              # "draft" label for partial translations
-│   │   └── ModelDownloadProgress.tsx       # First-launch download UI
+│   │   ├── TranscriptLane.tsx
+│   │   ├── TranslationLane.tsx
+│   │   ├── SessionCard.tsx
+│   │   ├── LangBadge.tsx                   # EN/JA/KO/ZH/VI badges
+│   │   ├── SpeakerBadge.tsx                # S1/S2/S3 colored badges
+│   │   ├── SummaryCard.tsx                 # Key points + action items
+│   │   ├── TopicSegmentList.tsx
+│   │   ├── ActionItemList.tsx
+│   │   └── KeywordPills.tsx
+│   ├── data/
+│   │   └── stopwords.ts                    # Vietnamese + English + Chinese stopwords
 │   ├── store/
-│   │   ├── conversationStore.ts            # Zustand: utterances + translations
-│   │   └── settingsStore.ts               # Zustand: user preferences
+│   │   ├── conversationStore.ts            # Utterances + translations + speakers
+│   │   └── settingsStore.ts
 │   ├── db/
-│   │   ├── schema.ts                       # SQLite table definitions
-│   │   └── queries.ts                      # CRUD operations
+│   │   ├── schema.ts                       # SQLite tables (incl. meeting_summaries)
+│   │   └── queries.ts
 │   └── App.tsx
-├── models/                                  # Downloaded at first launch
-│   ├── sensevoice-small-int8/              # STT (~234MB)
-│   └── nllb-600m-int8/                     # Translation (~800MB)
-├── scripts/
-│   └── prepare_nllb_mobile.py             # Convert NLLB to ONNX for mobile
 └── package.json
 ```
 
@@ -273,36 +313,45 @@ meeting-voice-assistant/
 
 ## 5. Resource Budget
 
-### 5.1 Memory (RAM)
+### 5.1 Memory (RAM) — iPhone 14 Pro Max (6GB)
 
-| Component | Estimated RAM | Notes |
-|-----------|--------------|-------|
-| SenseVoice-Small int8 | ~400-500MB | Loaded at app start |
-| NLLB-600M int8 (encoder) | ~350MB | Loaded at app start |
-| NLLB-600M int8 (decoders) | ~200MB | Shared memory with encoder |
-| KV cache (decoder) | ~50-100MB | Dynamic, per-sentence |
-| React Native runtime | ~80-100MB | JS engine + UI |
-| SQLite + app data | ~20MB | Minimal |
-| **Total** | **~1.1-1.3GB** | Target: ≤1.5GB on 6GB device |
+| Component | RAM | Notes |
+|-----------|-----|-------|
+| Whisper-Small int8 STT | ~450MB | Loaded at app start |
+| Apple Translation Framework | ~30-50MB | Managed by iOS |
+| Speaker Diarization (pyannote + CAM++) | ~70MB | Loaded at app start |
+| React Native runtime | ~80MB | JS engine + UI |
+| Meeting Minutes engine | ~0MB | Pure TypeScript computation |
+| **Total iOS** | **~650MB** | ✅ Well within 6GB device |
 
-### 5.2 Storage (Disk)
+### 5.2 Memory (RAM) — Android (6GB)
 
-| Asset | Size | Notes |
-|-------|------|-------|
-| SenseVoice model | ~234MB | Downloaded once |
-| NLLB model (compressed) | ~800MB | Downloaded once |
-| App binary | ~30MB | Installed via APK/IPA |
-| Session data | ~1-5MB/session | Grows over time |
-| **Total initial** | **~1.1GB** | First launch |
+| Component | RAM | Notes |
+|-----------|-----|-------|
+| Whisper-Small int8 STT | ~450MB | Loaded at app start |
+| Opus-MT (2 models max loaded) | ~160MB | en-vi always + active source model |
+| Speaker Diarization | ~70MB | Loaded at app start |
+| React Native runtime | ~80MB | JS engine + UI |
+| **Total Android** | **~760MB** | ✅ Within budget |
 
-### 5.3 Latency Budget
+### 5.3 Storage (App Bundle)
 
-| Stage | Target | Maximum |
-|-------|--------|---------|
+| Asset | iOS | Android | Notes |
+|-------|-----|---------|-------|
+| Whisper-Small int8 | 244MB | 244MB | Bundled |
+| Speaker Diarization | 35MB | 35MB | Bundled |
+| Opus-MT models | — | 200MB | Android only |
+| App binary | 30MB | 30MB | |
+| **Total install** | **~310MB** | **~510MB** | |
+
+### 5.4 Latency Budget
+
+| Stage | iOS | Android |
+|-------|-----|---------|
 | Audio chunk | 80ms | 80ms |
-| VAD decision | 30ms | 50ms |
-| STT partial | 200ms | 400ms |
-| STT final | 200ms | 400ms |
-| Translation (on-device) | 500ms | 1,500ms |
+| VAD decision | 30ms | 30ms |
+| STT (Whisper-Small) | ~1,000ms | ~1,500ms |
+| Translation | 50-200ms | 200-500ms |
+| Speaker embedding | 10-30ms | 10-30ms |
 | UI render | 16ms | 16ms |
-| **End-to-end** | **~1,000ms** | **~2,500ms** |
+| **End-to-end** | **~1,200ms** | **~2,100ms** |

@@ -19,7 +19,7 @@ class OfflineSpeakerDiarizationPackage : BaseReactPackage() {
         false,
         true,
         false,
-        true,
+        false,
       ),
     )
   }

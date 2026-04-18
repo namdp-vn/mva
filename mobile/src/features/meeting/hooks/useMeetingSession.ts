@@ -84,19 +84,25 @@ type DeferredTranslationItem = {
 let translatorInitInFlight: Promise<boolean> | null = null;
 
 function kickOffTranslatorInitIfNeeded(): void {
+  console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() called, session status:', useMeetingStore.getState().session.status);
   if (isIosDebugLiveTranslationDisabled()) {
+    console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() early return: iOS debug disabled');
     return;
   }
   if (useMeetingStore.getState().session.status !== 'recording') {
+    console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() early return: not recording, status =', useMeetingStore.getState().session.status);
     return;
   }
   const translator = getOnDeviceTranslator();
   if (translator.isSuppressedForMemoryPressure()) {
+    console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() early return: memory pressure');
     return;
   }
   if (translatorInitInFlight) {
+    console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() early return: init already in flight');
     return;
   }
+  console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded() starting init');
   translatorInitInFlight = (async (): Promise<boolean> => {
     try {
       const loaded = await translator.isLoaded();
@@ -108,6 +114,7 @@ function kickOffTranslatorInitIfNeeded(): void {
       if (!loaded) {
         console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded: calling translator.initialize()...');
         const ok = await translator.initialize('');
+        console.warn('[useMeetingSession] kickOffTranslatorInitIfNeeded: translator.initialize() returned =', ok);
         if (!ok) return false;
       }
       return true;
@@ -1097,6 +1104,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
 
   const startMeeting = useCallback(
     async (sourceLanguage: SourceLanguage = 'en', targetLanguage: TargetLanguage = 'vi') => {
+      console.warn('[useMeetingSession] startMeeting: entered', {sourceLanguage, targetLanguage});
       const persistence = getPersistenceService();
       getOnDeviceTranslator().clearMemoryPressureSuppression();
       stoppingSessionRef.current = false;
@@ -1126,11 +1134,15 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       // Disabled in live session for stability on-device.
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
         try {
+          console.warn('[useMeetingSession] real recognizer start: entering', {platform: Platform.OS, sessionId});
           realSpeechRecognizer = getRealSpeechRecognizer();
+          console.warn('[useMeetingSession] real recognizer start: instance ready', {hasInstance: !!realSpeechRecognizer});
           realRecognizerRef.current = realSpeechRecognizer;
           await realSpeechRecognizer.start(sessionId, handleIncomingPipelineEvent);
+          console.warn('[useMeetingSession] real recognizer start: success', {sessionId});
           startedWithRealRecognizer = true;
         } catch (error) {
+          console.warn('[useMeetingSession] real recognizer start: failed', {sessionId, error});
           warnLog('[useMeetingSession] Real recognizer failed to start:', error);
         }
       }
@@ -1139,10 +1151,13 @@ export function useMeetingSession(): UseMeetingSessionReturn {
         warnLog('[useMeetingSession] Falling back to simulated pipeline');
         try {
           const pipeline = pipelineRef.current ?? meetingPipeline;
+          console.warn('[useMeetingSession] fallback pipeline start', {sessionId, hasPipeline: !!pipeline});
           if (pipeline) {
             await pipeline.start(sessionId);
+            console.warn('[useMeetingSession] fallback pipeline start: success', {sessionId});
           }
         } catch (error) {
+          console.warn('[useMeetingSession] fallback pipeline start: failed', {sessionId, error});
           warnLog('[useMeetingSession] Simulated pipeline also failed:', error);
           store.setPipelineStatus('error', error instanceof Error ? error.message : 'No recognizer available');
         }

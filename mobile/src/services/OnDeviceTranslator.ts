@@ -2,6 +2,7 @@ import {SourceLanguage, TargetLanguage} from '../shared/types';
 import {translationService} from './TranslationService';
 import {AppState, NativeEventSubscription, Platform} from 'react-native';
 import {useSettingsStore} from '../shared/store/settingsStore';
+import {warnLog, infoLog} from '../shared/utils/logger';
 
 export type TranslationSourceLanguage = 'en' | 'ja' | 'ko' | 'zh';
 
@@ -105,13 +106,17 @@ export class OnDeviceTranslator {
   }
 
   async initialize(_modelDir: string): Promise<boolean> {
+    infoLog('[OnDeviceTranslator] initialize() called, current initialized =', this.initialized);
     this.refreshMemoryPressureSuppression();
     if (this.memoryPressureSuppressedUntil !== 0) {
+      warnLog('[OnDeviceTranslator] initialize() blocked by memory pressure');
       return false;
     }
     const ok = await translationService.initialize();
+    infoLog('[OnDeviceTranslator] initialize() translationService.initialize() returned =', ok);
     if (ok) {
       this.initialized = true;
+      infoLog('[OnDeviceTranslator] initialize() set this.initialized = true');
     }
     return ok;
   }
@@ -146,6 +151,7 @@ export class OnDeviceTranslator {
   }
 
   async isLoaded(): Promise<boolean> {
+    infoLog('[OnDeviceTranslator] isLoaded() returning =', this.initialized);
     return this.initialized;
   }
 
@@ -223,8 +229,10 @@ export class OnDeviceTranslator {
   }
 
   async translate(request: TranslationRequest): Promise<{text: string; version: number}> {
+    infoLog('[OnDeviceTranslator] translate() called for text:', request.text.substring(0, 50));
     this.refreshMemoryPressureSuppression();
     if (this.memoryPressureSuppressedUntil !== 0) {
+      warnLog('[OnDeviceTranslator] translate() blocked by memory pressure');
       throw new TranslationSuppressedForMemoryError();
     }
     const version = request.requestId ?? ++this.versionCounter;
@@ -234,22 +242,27 @@ export class OnDeviceTranslator {
 
     return new Promise((resolve, reject) => {
       if (this.pending) {
+        warnLog('[OnDeviceTranslator] translate() cancelling pending translation');
         this.pending.reject(new TranslationCancelledError());
       }
       this.pending = {
         run: async () => {
           try {
+            infoLog('[OnDeviceTranslator] translate() calling translationService.translate()');
             const translated = await translationService.translate(
               request.text,
               request.sourceLanguage as SourceLanguage,
               targetLang,
             );
+            infoLog('[OnDeviceTranslator] translate() translationService.translate() returned:', translated.text.substring(0, 50));
             resolve({text: translated.text, version});
           } catch (error) {
+            warnLog('[OnDeviceTranslator] translate() error:', error);
             reject(error);
           } finally {
             if (this.deferredUnloadRequested) {
               try {
+                warnLog('[OnDeviceTranslator] translate() executing deferred unload');
                 await this.unload();
               } catch {
                 // Best-effort unload for debug stability.
