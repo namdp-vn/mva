@@ -72,13 +72,13 @@ Unlike many meeting tools that depend heavily on cloud-only pipelines, MVA explo
 
 ## Screenshots
 
-| Home | Meeting |
+| Settings | Meeting |
 |---|---|
-| ![Home screen](docs/media/photo_1_2026-05-06_15-51-52.jpg) | ![Meeting screen](docs/media/photo_2_2026-05-06_15-51-52.jpg) |
+| ![Settings screen](docs/media/photo_1_2026-05-06_15-51-52.jpg) | ![Meeting screen](docs/media/photo_2_2026-05-06_15-51-52.jpg) |
 
-| Session Review | Models / Settings |
+| Session Review | Home |
 |---|---|
-| ![Session review](docs/media/photo_3_2026-05-06_15-51-52.jpg) | ![Models or settings screen](docs/media/photo_4_2026-05-06_15-51-52.jpg) |
+| ![Session review](docs/media/photo_3_2026-05-06_15-51-52.jpg) | ![Home screen](docs/media/photo_4_2026-05-06_15-51-52.jpg) |
 
 ## Tech stack
 
