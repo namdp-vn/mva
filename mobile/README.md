@@ -86,6 +86,19 @@ npm install
 npm start
 ```
 
+## iOS Setup
+
+Run this once after cloning or pulling iOS dependency changes:
+
+```bash
+cd mobile
+npm ci
+npm run ios:pods
+npm run ios:open
+```
+
+Build from `ios/VibeVoiceNative.xcworkspace`, not `ios/VibeVoiceNative.xcodeproj`. The workspace includes the CocoaPods project and the generated `Pods/Target Support Files` configs that Xcode needs.
+
 ## Development Notes
 
 - Mock data/state is used where real backend/native integration is not yet available
