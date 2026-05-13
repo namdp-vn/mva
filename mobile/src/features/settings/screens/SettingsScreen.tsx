@@ -29,6 +29,7 @@ import {
   useTargetLanguage,
   useThemeMode,
   useDiarizationThreshold,
+  useSttEngine,
   TARGET_LANGUAGE_OPTIONS,
   getLanguageOption,
 } from '../../../shared/store';
@@ -72,6 +73,8 @@ export function SettingsScreen(): React.JSX.Element {
   const currentLangOption = getLanguageOption(targetLanguage);
   const diarizationThreshold = useDiarizationThreshold();
   const {setDiarizationThreshold} = useSettingsStore();
+  const sttEngine = useSttEngine();
+  const {setSttEngine} = useSettingsStore();
   const translationEngineLabel = Platform.OS === 'ios' ? 'Apple Translate' : 'Opus-MT';
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
@@ -238,8 +241,44 @@ export function SettingsScreen(): React.JSX.Element {
                 <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Translation Engine</Text>
                 <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Uses {translationEngineLabel} for on-device meeting translation.</Text>
               </View>
-              <View style={[styles.inlineBadge, {backgroundColor: theme.colors.surface.container}]}> 
+              <View style={[styles.inlineBadge, {backgroundColor: theme.colors.surface.container}]}>
                 <Text style={[styles.inlineBadgeText, {color: theme.colors.text.secondary}]}>{translationEngineLabel}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+
+            <View style={styles.sttEngineCard}>
+              <View style={styles.settingInfoNoMargin}>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Speech Recognition Engine</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Takes effect on next meeting. Whisper adds Vietnamese support.</Text>
+              </View>
+              <View style={styles.sttEngineRow}>
+                {([
+                  {key: 'sense_voice' as const, label: 'SenseVoice', langs: 'EN · JA · KO · ZH'},
+                  {key: 'whisper' as const, label: 'Whisper', langs: 'EN · JA · KO · ZH · VI'},
+                ] as const).map((option) => {
+                  const active = sttEngine === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.sttEngineButton,
+                        active
+                          ? {backgroundColor: theme.colors.primary + '25', borderColor: theme.colors.primary}
+                          : {backgroundColor: theme.colors.surface.container, borderColor: theme.colors.border.subtle},
+                      ]}
+                      onPress={() => setSttEngine(option.key)}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.sttEngineLabel, {color: active ? theme.colors.primary : theme.colors.text.primary}]}>
+                        {option.label}
+                      </Text>
+                      <Text style={[styles.sttEngineLangs, {color: active ? theme.colors.primary : theme.colors.text.tertiary}]}>
+                        {option.langs}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </View>
@@ -1031,6 +1070,33 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     textTransform: 'uppercase',
     letterSpacing: typography.letterSpacing.widest,
+  },
+  sttEngineCard: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  sttEngineRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  sttEngineButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  sttEngineLabel: {
+    fontFamily: typography.fontFamily.headline,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '700',
+  },
+  sttEngineLangs: {
+    fontFamily: typography.fontFamily.mono,
+    fontSize: 9,
+    textAlign: 'center',
   },
 });
 

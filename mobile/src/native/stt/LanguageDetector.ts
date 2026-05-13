@@ -1,10 +1,10 @@
 /**
  * Language Detector
  *
- * Detects the source language (EN/JA/KO/ZH) from audio or transcript input.
+ * Detects the source language (EN/JA/KO/ZH/VI) from audio or transcript input.
  * Normalizes language values to stable contract for UI badges and downstream events.
  *
- * Per architecture: Keep EN/JA/KO/ZH-focused display while keeping contract extensible.
+ * Per architecture: Keep EN/JA/KO/ZH/VI-focused display while keeping contract extensible.
  */
 
 import type { SessionId, UtteranceId, SourceLanguage } from '../../shared/types/common';
@@ -24,7 +24,7 @@ export interface LanguageConfig {
 }
 
 const DEFAULT_LANGUAGE_CONFIG: LanguageConfig = {
-  supportedLanguages: ['en', 'ja', 'ko', 'zh'],
+  supportedLanguages: ['en', 'ja', 'ko', 'zh', 'vi'],
   minConfidence: 0.6,
 };
 
@@ -142,6 +142,16 @@ export class LanguageDetector {
       };
     }
 
+    // Vietnamese: Latin script with tone diacritics (ắ ẹ ự ỏ ề ồ ứ ị ặ ọ ẽ ử ố ấ ờ ộ ề ặ ồ ỉ ề…)
+    const hasVietnamese = /[àáâãèéêìíòóôõùúýăắặầẩẫậắằẳẵặếềểễệỉịọỏốổỗộớờởỡợụủứừửữựỳỷỹđ]/i.test(text);
+    if (hasVietnamese) {
+      return {
+        language: 'vi',
+        confidence: 0.82,
+        timestampMs,
+      };
+    }
+
     // Default to English for Latin script
     // Check for common English words as additional signal
     const commonEnglishWords = ['the', 'is', 'are', 'was', 'were', 'have', 'has', 'will', 'would', 'could', 'should', 'think', 'believe', 'consider'];
@@ -188,6 +198,7 @@ export function getLanguageLabel(language: SourceLanguage): string {
     ja: 'JA',
     ko: 'KO',
     zh: 'ZH',
+    vi: 'VI',
   };
   return labels[language] ?? language.toUpperCase();
 }
@@ -201,6 +212,7 @@ export function getLanguageName(language: SourceLanguage): string {
     ja: 'Japanese',
     ko: 'Korean',
     zh: 'Chinese',
+    vi: 'Vietnamese',
   };
   return names[language] ?? language;
 }

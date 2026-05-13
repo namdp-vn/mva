@@ -51,6 +51,9 @@ export const DIARIZATION_THRESHOLD_MIN = 0.3;
 export const DIARIZATION_THRESHOLD_MAX = 0.9;
 export const DEFAULT_DIARIZATION_THRESHOLD = 0.55;
 
+export type SttEngineType = 'sense_voice' | 'whisper';
+export const DEFAULT_STT_ENGINE: SttEngineType = 'sense_voice';
+
 interface SettingsState {
   developerMode: boolean;
   setDeveloperMode: (enabled: boolean) => void;
@@ -62,6 +65,9 @@ interface SettingsState {
   /** Speaker diarization sensitivity threshold (default: 0.55, range: 0.3-0.9) */
   diarizationThreshold: number;
   setDiarizationThreshold: (threshold: number) => void;
+  /** STT engine: SenseVoice (EN/JA/KO/ZH) or Whisper Small (EN/JA/KO/ZH/VI) */
+  sttEngine: SttEngineType;
+  setSttEngine: (engine: SttEngineType) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -76,16 +82,19 @@ export const useSettingsStore = create<SettingsState>()(
       diarizationThreshold: DEFAULT_DIARIZATION_THRESHOLD,
       setDiarizationThreshold: (threshold) =>
         set({diarizationThreshold: Math.max(DIARIZATION_THRESHOLD_MIN, Math.min(DIARIZATION_THRESHOLD_MAX, threshold))}),
+      sttEngine: DEFAULT_STT_ENGINE,
+      setSttEngine: (engine) => set({sttEngine: engine}),
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
         themeMode: state.themeMode,
         targetLanguage: state.targetLanguage,
         diarizationThreshold: state.diarizationThreshold,
+        sttEngine: state.sttEngine,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -103,6 +112,7 @@ export const useSettingsStore = create<SettingsState>()(
           themeMode: state.themeMode ?? 'system',
           targetLanguage: state.targetLanguage ?? DEFAULT_TARGET_LANGUAGE,
           diarizationThreshold: upgradedThreshold,
+          sttEngine: (state as any).sttEngine ?? DEFAULT_STT_ENGINE,
         } as SettingsState;
       },
     }
@@ -113,3 +123,4 @@ export const useDeveloperMode = () => useSettingsStore((state) => state.develope
 export const useThemeMode = () => useSettingsStore((state) => state.themeMode);
 export const useTargetLanguage = () => useSettingsStore((state) => state.targetLanguage);
 export const useDiarizationThreshold = () => useSettingsStore((state) => state.diarizationThreshold);
+export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
