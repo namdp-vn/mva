@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {View, Text, StyleSheet, Pressable, ActivityIndicator, SafeAreaView, Platform, Alert, Linking} from 'react-native';
+import {View, Text, StyleSheet, Pressable, ActivityIndicator, SafeAreaView, Platform} from 'react-native';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {spacing, typography, borderRadius, shadows} from '@shared/constants';
@@ -13,6 +13,7 @@ import {warnLog} from '../../../shared/utils/logger';
 import {translationService} from '../../../services/TranslationService';
 import {ensureBundledModelInstalled} from '../../../native/models/BundledModelInstaller';
 import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
+import {markPacksDownloaded, markPacksSkipped} from '../../../services/languagePackStatus';
 
 const MOCK_MODEL: ModelInfo = {
   id: 'sensevoice-small',
@@ -115,10 +116,6 @@ async function checkLanguagePacksStatus(targetLang: string): Promise<{installed:
   return {installed, missing, allSupported};
 }
 
-function openLanguageSettings(): void {
-  Linking.openURL('App-prefs://GENERAL&path=LANGUAGE');
-}
-
 export const SplashScreen: React.FC = () => {
   const navigation = useNavigation<SplashNavigationProp>();
   const {theme, isDark} = useTheme();
@@ -140,9 +137,17 @@ export const SplashScreen: React.FC = () => {
   } = useBootstrapStore();
 
   const [isInitializing, setIsInitializing] = useState(true);
+  const [langPackStep, setLangPackStep] = useState<'idle' | 'needs-download' | 'downloading' | 'retry'>('idle');
+  const [missingPacks, setMissingPacks] = useState<string[]>([]);
+  const [failedPacks, setFailedPacks] = useState<string[]>([]);
+  const [dlProgress, setDlProgress] = useState({index: 0, total: 4, packName: '', isVerifying: false});
+  const userChoiceRef = useRef<((confirmed: boolean) => void) | null>(null);
   const hasBootstrappedRef = useRef(false);
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
+
+  const handleConfirmDownload = () => userChoiceRef.current?.(true);
+  const handleSkipDownload = () => userChoiceRef.current?.(false);
 
   useEffect(() => {
     if (hasBootstrappedRef.current) {
@@ -179,38 +184,85 @@ export const SplashScreen: React.FC = () => {
           const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
           warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
 
-          if (missing.length > 0 && Platform.OS === 'ios') {
-            // Show alert to user asking them to download language packs (iOS only)
-            // Android ML Kit auto-downloads, so no user prompt needed
-            await new Promise<void>((resolve) => {
-              const message = allSupported
-                ? `To enable real-time translation to ${TARGET_LANGUAGE_LABELS[targetLanguage] || targetLanguage}, please download the following language packs:\n\n${missing.join('\n')}\n\nGo to Settings → General → Language & Region → Download Languages`
-                : `Some language pairs are not supported on this device:\n\n${missing.join('\n')}\n\nTranslation will only work for installed languages.`;
+          if (missing.length > 0 && Platform.OS === 'ios' && allSupported) {
+            setMissingPacks(missing);
+            setLangPackStep('needs-download');
 
-              Alert.alert(
-                'Translation Languages Required',
-                message,
-                [
-                  {
-                    text: allSupported ? 'Open Settings' : 'OK',
-                    onPress: () => {
-                      if (allSupported) {
-                        openLanguageSettings();
-                      }
-                      resolve();
-                    },
-                  },
-                  {
-                    text: 'Continue',
-                    onPress: () => {
-                      warnLog('[SplashScreen] User acknowledged language pack requirement');
-                      resolve();
-                    },
-                  },
-                ],
-                {cancelable: false},
-              );
+            const confirmed = await new Promise<boolean>(resolve => {
+              userChoiceRef.current = resolve;
             });
+
+            if (!confirmed) {
+              markPacksSkipped();
+              warnLog('[SplashScreen] User skipped language pack download');
+            } else {
+              const nativeModule = getNativeAppleTranslator();
+              const allPacks = getLanguagePacksToCheck(targetLanguage);
+              // First attempt covers all packs; retries cover only failed ones
+              let pendingPacks = allPacks;
+              let keepRetrying = true;
+
+              while (keepRetrying && pendingPacks.length > 0) {
+                // --- Download phase ---
+                setLangPackStep('downloading');
+                for (let i = 0; i < pendingPacks.length; i++) {
+                  const pack = pendingPacks[i];
+                  setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
+                  if (nativeModule) {
+                    try {
+                      await nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage);
+                    } catch {
+                      warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
+                    }
+                  }
+                }
+
+                // --- Verify phase: check actual installed status for all 4 packs ---
+                setDlProgress({index: pendingPacks.length, total: pendingPacks.length, packName: 'Đang kiểm tra...', isVerifying: true});
+                const nowFailed: string[] = [];
+                for (const pack of allPacks) {
+                  if (!nativeModule) {
+                    nowFailed.push(pack.displayName);
+                    continue;
+                  }
+                  try {
+                    const status = await nativeModule.getLanguagePackStatus(pack.srcLang, targetLanguage);
+                    if (status !== 'installed') {
+                      nowFailed.push(pack.displayName);
+                    }
+                  } catch {
+                    nowFailed.push(pack.displayName);
+                  }
+                }
+
+                if (nowFailed.length === 0) {
+                  markPacksDownloaded();
+                  warnLog('[SplashScreen] All language packs verified as installed');
+                  keepRetrying = false;
+                } else {
+                  // Some packs still not installed — offer retry
+                  setFailedPacks(nowFailed);
+                  setLangPackStep('retry');
+                  warnLog(`[SplashScreen] ${nowFailed.length} pack(s) failed: ${nowFailed.join(', ')}`);
+
+                  const retry = await new Promise<boolean>(resolve => {
+                    userChoiceRef.current = resolve;
+                  });
+
+                  if (!retry) {
+                    markPacksSkipped();
+                    warnLog('[SplashScreen] User skipped retry after partial failure');
+                    keepRetrying = false;
+                  } else {
+                    // Next iteration only re-downloads failed packs
+                    // (Swift skips already-installed packs automatically)
+                    pendingPacks = allPacks.filter(p => nowFailed.includes(p.displayName));
+                  }
+                }
+              }
+            }
+
+            setLangPackStep('idle');
           }
 
           const translatorReady = await translationService.initialize();
@@ -292,70 +344,181 @@ export const SplashScreen: React.FC = () => {
         </View>
 
         <View style={styles.statusSection}>
-          {isInitializing || modelState.status === 'downloading' || useBootstrapStore.getState().state.translatorModel.status === 'downloading' ? (
-            <ProgressCard
-              title="Loading on-device models..."
-              subtitle={`${MOCK_MODEL.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
-              progress={getProgressPercentage()}
-              bytesDownloaded={modelState.downloadProgress?.bytesDownloaded ?? 0}
-              totalBytes={modelState.downloadProgress?.totalBytes ?? MOCK_MODEL.diskFootprintMB * 1024 * 1024}
-              status={modelState.status === 'downloading' ? 'downloading' : 'processing'}
-            />
+          {langPackStep === 'needs-download' ? (
+            <View style={[styles.langPackCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
+              <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
+                Cần tải gói ngôn ngữ dịch thuật
+              </Text>
+              <Text style={[styles.langPackBody, {color: theme.colors.text.secondary}]}>
+                Để dịch thuật real-time trong cuộc họp, app cần tải về các gói ngôn ngữ từ Apple Translation. Các gói này chạy hoàn toàn offline sau khi tải.
+              </Text>
+              <View style={styles.langPackList}>
+                {[
+                  'English → Tiếng Việt',
+                  'Korean → Tiếng Việt',
+                  'Chinese → Tiếng Việt',
+                  'Japanese → Tiếng Việt',
+                ].map(item => (
+                  <View key={item} style={styles.langPackItem}>
+                    <Text style={[styles.langPackItemDot, {color: theme.colors.secondary}]}>◆</Text>
+                    <Text style={[styles.langPackItemText, {color: theme.colors.text.secondary}]}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={[styles.langPackNote, {color: theme.colors.text.tertiary}]}>
+                ~30MB mỗi gói · Chỉ tải một lần · Hoạt động offline
+              </Text>
+              <View style={styles.langPackActions}>
+                <Pressable
+                  style={[styles.skipBtn, {borderColor: ringBorderColor}]}
+                  onPress={handleSkipDownload}>
+                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>Bỏ qua</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}]}
+                  onPress={handleConfirmDownload}>
+                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Đồng ý</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : langPackStep === 'downloading' ? (
+            <View style={[styles.downloadCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
+              <Text style={[styles.downloadTitle, {color: theme.colors.text.primary}]}>
+                {dlProgress.isVerifying ? 'Đang kiểm tra...' : 'Đang tải gói ngôn ngữ...'}
+              </Text>
+              {!dlProgress.isVerifying && (
+                <Text style={[styles.downloadPackName, {color: theme.colors.text.secondary}]}>
+                  {dlProgress.packName}
+                </Text>
+              )}
+              <View style={styles.stepDots}>
+                {Array.from({length: 4}, (_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.stepDot,
+                      {
+                        backgroundColor:
+                          i < dlProgress.index - 1
+                            ? theme.colors.secondary
+                            : i === dlProgress.index - 1
+                            ? theme.colors.secondary + 'aa'
+                            : isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+              {!dlProgress.isVerifying && (
+                <Text style={[styles.downloadCounter, {color: theme.colors.text.tertiary}]}>
+                  {dlProgress.index} / {dlProgress.total} gói
+                </Text>
+              )}
+              <ActivityIndicator size="small" color={theme.colors.secondary} style={{marginTop: spacing.xs}} />
+              <Text style={[styles.downloadHint, {color: theme.colors.text.tertiary}]}>
+                {dlProgress.isVerifying
+                  ? 'Xác nhận trạng thái tải xuống...'
+                  : 'Apple sẽ hiển thị hộp thoại tải cho từng gói'}
+              </Text>
+            </View>
+          ) : langPackStep === 'retry' ? (
+            <View style={[styles.langPackCard, {borderColor: '#ffb4ab', backgroundColor: isDark ? 'rgba(255,180,171,0.06)' : 'rgba(255,180,171,0.08)'}]}>
+              <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
+                Tải xuống thất bại
+              </Text>
+              <Text style={[styles.langPackBody, {color: theme.colors.text.secondary}]}>
+                Một số gói không tải được, có thể do kết nối mạng. Các gói đã tải thành công sẽ được giữ lại khi thử lại.
+              </Text>
+              <View style={styles.langPackList}>
+                {failedPacks.map(pack => (
+                  <View key={pack} style={styles.langPackItem}>
+                    <Text style={[styles.langPackItemDot, {color: '#ff6b6b'}]}>✗</Text>
+                    <Text style={[styles.langPackItemText, {color: theme.colors.text.secondary}]}>{pack}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.langPackActions}>
+                <Pressable
+                  style={[styles.skipBtn, {borderColor: ringBorderColor}]}
+                  onPress={handleSkipDownload}>
+                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>Bỏ qua</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}]}
+                  onPress={handleConfirmDownload}>
+                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Thử lại</Text>
+                </Pressable>
+              </View>
+            </View>
           ) : (
-            <View style={styles.readinessGrid}>
-              <ReadinessStatus
-                domain="model"
-                status={modelState.status}
-                label="AI Model"
-                description={modelState.currentModel ? `${modelState.currentModel.name} loaded` : undefined}
-              />
-              <ReadinessStatus
-                domain="model"
-                status={useBootstrapStore.getState().state.translatorModel.status}
-                label="Translation Model"
-                description={useBootstrapStore.getState().state.translatorModel.currentModel ? `${useBootstrapStore.getState().state.translatorModel.currentModel?.name} loaded` : undefined}
-              />
-              <ReadinessStatus
-                domain="prewarm"
-                status={prewarmState.status}
-                label="Speech Recognition"
-                description="Ready for first utterance"
-              />
+            <>
+              {isInitializing || modelState.status === 'downloading' || useBootstrapStore.getState().state.translatorModel.status === 'downloading' ? (
+                <ProgressCard
+                  title="Loading on-device models..."
+                  subtitle={`${MOCK_MODEL.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
+                  progress={getProgressPercentage()}
+                  bytesDownloaded={modelState.downloadProgress?.bytesDownloaded ?? 0}
+                  totalBytes={modelState.downloadProgress?.totalBytes ?? MOCK_MODEL.diskFootprintMB * 1024 * 1024}
+                  status={modelState.status === 'downloading' ? 'downloading' : 'processing'}
+                />
+              ) : (
+                <View style={styles.readinessGrid}>
+                  <ReadinessStatus
+                    domain="model"
+                    status={modelState.status}
+                    label="AI Model"
+                    description={modelState.currentModel ? `${modelState.currentModel.name} loaded` : undefined}
+                  />
+                  <ReadinessStatus
+                    domain="model"
+                    status={useBootstrapStore.getState().state.translatorModel.status}
+                    label="Translation Model"
+                    description={useBootstrapStore.getState().state.translatorModel.currentModel ? `${useBootstrapStore.getState().state.translatorModel.currentModel?.name} loaded` : undefined}
+                  />
+                  <ReadinessStatus
+                    domain="prewarm"
+                    status={prewarmState.status}
+                    label="Speech Recognition"
+                    description="Ready for first utterance"
+                  />
+                </View>
+              )}
+              <Text style={[styles.statusMessage, {color: theme.colors.text.tertiary}]}>
+                {isInitializing ? 'Getting ready...' : overallStatus === 'ready' ? 'Ready to start' : 'Setup required'}
+              </Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      {langPackStep === 'idle' && (
+        <View style={styles.footer}>
+          <View style={[styles.metadataContainer, {borderColor: ringBorderColor}]}>
+            <Text style={[styles.metadataIconGlyph, {color: theme.colors.secondary}]}>◈</Text>
+            <Text style={[styles.metadataText, {color: theme.colors.text.tertiary}]}>SenseVoice • EN / JA / KO / ZH</Text>
+          </View>
+
+          {isInitializing && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.secondary} />
             </View>
           )}
 
-          <Text style={[styles.statusMessage, {color: theme.colors.text.tertiary}]}>
-            {isInitializing ? 'Getting ready...' : overallStatus === 'ready' ? 'Ready to start' : 'Setup required'}
-          </Text>
+          {!isInitializing && overallStatus === 'ready' && (
+            <View style={styles.readyFooter}>
+              <Pressable
+                style={({pressed}) => [
+                  styles.readyButton,
+                  {backgroundColor: theme.colors.secondary},
+                  pressed && styles.readyButtonPressed,
+                ]}
+                onPress={() => navigation.replace('Meeting')}>
+                <Text style={[styles.readyButtonText, {color: isDark ? theme.colors.text.primary : '#FFFFFF'}]}>Start Meeting</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
-      </View>
-
-      <View style={styles.footer}>
-        <View style={[styles.metadataContainer, {borderColor: ringBorderColor}]}>
-          <Text style={[styles.metadataIconGlyph, {color: theme.colors.secondary}]}>◈</Text>
-          <Text style={[styles.metadataText, {color: theme.colors.text.tertiary}]}>SenseVoice • EN / JA / KO / ZH</Text>
-        </View>
-
-        {isInitializing && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={theme.colors.secondary} />
-          </View>
-        )}
-
-        {!isInitializing && overallStatus === 'ready' && (
-          <View style={styles.readyFooter}>
-            <Pressable
-              style={({pressed}) => [
-                styles.readyButton,
-                {backgroundColor: theme.colors.secondary},
-                pressed && styles.readyButtonPressed,
-              ]}
-              onPress={() => navigation.replace('Meeting')}>
-              <Text style={[styles.readyButtonText, {color: isDark ? theme.colors.text.primary : '#FFFFFF'}]}>Start Meeting</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -393,6 +556,28 @@ const styles = StyleSheet.create({
   readyButton: {borderRadius: borderRadius.lg, paddingVertical: spacing.md, alignItems: 'center', ...shadows.card.elevated},
   readyButtonPressed: {opacity: 0.9},
   readyButtonText: {fontWeight: '700'},
+  // Language pack explanation card
+  langPackCard: {borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, gap: spacing.md},
+  langPackTitle: {fontFamily: typography.fontFamily.headline, fontSize: typography.fontSize.xl, fontWeight: '700'},
+  langPackBody: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, lineHeight: 22},
+  langPackList: {gap: spacing.sm},
+  langPackItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+  langPackItemDot: {fontSize: 8},
+  langPackItemText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md},
+  langPackNote: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.sm, textAlign: 'center'},
+  langPackActions: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs},
+  skipBtn: {flex: 1, borderWidth: 1, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center'},
+  skipBtnText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, fontWeight: '600'},
+  confirmBtn: {flex: 1, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center', ...shadows.card.elevated},
+  confirmBtnText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, fontWeight: '700'},
+  // Download progress card
+  downloadCard: {borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, alignItems: 'center', gap: spacing.md},
+  downloadTitle: {fontFamily: typography.fontFamily.headline, fontSize: typography.fontSize.xl, fontWeight: '700', textAlign: 'center'},
+  downloadPackName: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, textAlign: 'center'},
+  stepDots: {flexDirection: 'row', gap: spacing.sm},
+  stepDot: {width: 10, height: 10, borderRadius: 5},
+  downloadCounter: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.sm},
+  downloadHint: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.xs, textAlign: 'center'},
 });
 
 export default SplashScreen;

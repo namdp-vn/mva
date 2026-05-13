@@ -19,6 +19,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  Alert,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -33,6 +35,7 @@ import {TranscriptLane} from '../components/TranscriptLane';
 import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
 import {requestAudioPermission} from '../../../shared/utils/permissions';
+import {arePacksDownloaded} from '../../../services/languagePackStatus';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
@@ -152,6 +155,28 @@ export function MeetingScreen(): React.JSX.Element {
 
     if (!sttReady) {
       navigation.navigate('Settings');
+      return;
+    }
+
+    if (Platform.OS === 'ios' && arePacksDownloaded() === false) {
+      Alert.alert(
+        'Chưa tải gói ngôn ngữ',
+        'Dịch thuật real-time sẽ không hoạt động trong cuộc họp vì các gói ngôn ngữ chưa được tải về.',
+        [
+          {
+            text: 'Quay lại tải',
+            onPress: () => {
+              navigation.reset({index: 0, routes: [{name: 'Bootstrap'}]});
+            },
+          },
+          {
+            text: 'Tiếp tục không dịch',
+            style: 'destructive',
+            onPress: handleStartMeeting,
+          },
+        ],
+        {cancelable: false},
+      );
       return;
     }
 
