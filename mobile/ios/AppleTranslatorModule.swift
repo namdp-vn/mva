@@ -7,7 +7,7 @@ typealias RejectBlock = (String?, String?, Error?) -> Void
 
 // MARK: - SwiftUI helper view to trigger system language pack download
 
-@available(iOS 17.4, *)
+@available(iOS 18.0, *)
 private struct LanguageDownloadTrigger: View {
     let configuration: TranslationSession.Configuration
     let onComplete: (Bool) -> Void
@@ -26,12 +26,45 @@ private struct LanguageDownloadTrigger: View {
     }
 }
 
+@available(iOS 18.0, *)
+private struct TranslationRunTrigger: View {
+    let configuration: TranslationSession.Configuration
+    let texts: [String]
+    let onComplete: ([String]?) -> Void
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .translationTask(configuration) { session in
+                do {
+                    try await session.prepareTranslation()
+
+                    if texts.count == 1, let text = texts.first {
+                        let response = try await session.translate(text)
+                        onComplete([response.targetText])
+                        return
+                    }
+
+                    let requests = texts.enumerated().map { index, text in
+                        TranslationSession.Request(sourceText: text, clientIdentifier: String(index))
+                    }
+                    let responses = try await session.translations(from: requests)
+                    let ordered = responses.sorted {
+                        Int($0.clientIdentifier ?? "") ?? 0 < Int($1.clientIdentifier ?? "") ?? 0
+                    }
+                    onComplete(ordered.map { $0.targetText })
+                } catch {
+                    onComplete(nil)
+                }
+            }
+    }
+}
+
 // MARK: - Native module
 
 @objc(AppleTranslatorModule)
 class AppleTranslatorModule: NSObject {
 
-    private var sessions: [String: TranslationSession] = [:]
     private var isAvailable = false
     private var unavailabilityReason: String = ""
 
@@ -63,12 +96,12 @@ class AppleTranslatorModule: NSObject {
     // MARK: - initialize
 
     @objc func initialize(_ resolve: @escaping ResolveBlock, reject: @escaping RejectBlock) {
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             self.isAvailable = true
             resolve(true as Any?)
         } else {
             self.isAvailable = false
-            self.unavailabilityReason = "Apple Translation requires iOS 17.4+"
+            self.unavailabilityReason = "Apple Translation requires iOS 18.0+"
             resolve(false as Any?)
         }
     }
@@ -92,25 +125,17 @@ class AppleTranslatorModule: NSObject {
         if #available(iOS 18.0, *) {
             Task {
                 do {
-                    let sessionKey = "\(srcId)-\(tgtId)"
-
-                    if let existing = sessions[sessionKey] {
-                        let response = try await existing.translate(text)
-                        resolve(response.targetText as Any?)
-                        return
-                    }
-
                     let srcLocale = Locale.Language(identifier: srcId)
                     let tgtLocale = Locale.Language(identifier: tgtId)
 
                     let availability = LanguageAvailability()
                     let status = await availability.status(from: srcLocale, to: tgtLocale)
 
-                    if status == .installed {
-                        let session = try await TranslationSession(installedSource: srcLocale, target: tgtLocale)
-                        self.sessions[sessionKey] = session
-                        let response = try await session.translate(text)
-                        resolve(response.targetText as Any?)
+                    if status == .installed || status == .supported {
+                        let config = TranslationSession.Configuration(source: srcLocale, target: tgtLocale)
+                        await MainActor.run {
+                            self.triggerTranslationUI(config: config, texts: [text], fallback: text as Any?, resolve: resolve)
+                        }
                     } else {
                         resolve(text as Any?)
                     }
@@ -148,12 +173,11 @@ class AppleTranslatorModule: NSObject {
                     let availability = LanguageAvailability()
                     let status = await availability.status(from: srcLocale, to: tgtLocale)
 
-                    if status == .installed {
-                        let session = try await TranslationSession(installedSource: srcLocale, target: tgtLocale)
-                        let requests = texts.map { TranslationSession.Request(sourceText: $0) }
-                        let responses = try await session.translations(from: requests)
-                        let results = responses.map { $0.targetText }
-                        resolve(results as Any?)
+                    if status == .installed || status == .supported {
+                        let config = TranslationSession.Configuration(source: srcLocale, target: tgtLocale)
+                        await MainActor.run {
+                            self.triggerTranslationUI(config: config, texts: texts, fallback: texts as Any?, resolve: resolve)
+                        }
                     } else {
                         resolve(texts as Any?)
                     }
@@ -177,7 +201,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             Task {
                 let availability = LanguageAvailability()
                 let status = await availability.status(
@@ -206,7 +230,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             let srcLocale = Locale.Language(identifier: srcId)
             let tgtLocale = Locale.Language(identifier: tgtId)
 
@@ -236,7 +260,56 @@ class AppleTranslatorModule: NSObject {
         }
     }
 
-    @available(iOS 17.4, *)
+    @available(iOS 18.0, *)
+    @MainActor
+    private func triggerTranslationUI(config: TranslationSession.Configuration, texts: [String], fallback: Any?, resolve: @escaping ResolveBlock) {
+        guard let topVC = self.topViewController() else {
+            resolve(fallback)
+            return
+        }
+
+        final class HolderRef {
+            var vc: UIHostingController<AnyView>?
+            var didResolve = false
+        }
+        let holder = HolderRef()
+
+        let complete: ([String]?) -> Void = { results in
+            Task { @MainActor in
+                guard !holder.didResolve else {
+                    return
+                }
+                holder.didResolve = true
+                holder.vc?.willMove(toParent: nil)
+                holder.vc?.view.removeFromSuperview()
+                holder.vc?.removeFromParent()
+                holder.vc = nil
+
+                if let results {
+                    if texts.count == 1 {
+                        resolve((results.first ?? texts.first ?? "") as Any?)
+                    } else {
+                        resolve(results as Any?)
+                    }
+                } else {
+                    resolve(fallback)
+                }
+            }
+        }
+
+        let trigger = TranslationRunTrigger(configuration: config, texts: texts, onComplete: complete)
+        let hostingVC = UIHostingController(rootView: AnyView(trigger))
+        holder.vc = hostingVC
+        hostingVC.view.backgroundColor = UIColor.clear
+        hostingVC.view.alpha = 0.0
+        hostingVC.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+        topVC.addChild(hostingVC)
+        topVC.view.addSubview(hostingVC.view)
+        hostingVC.didMove(toParent: topVC)
+    }
+
+    @available(iOS 18.0, *)
     @MainActor
     private func triggerDownloadUI(config: TranslationSession.Configuration, resolve: @escaping ResolveBlock) {
         guard let topVC = self.topViewController() else {
@@ -294,7 +367,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 17.4, *) {
+        if #available(iOS 18.0, *) {
             Task {
                 let srcLocale = Locale.Language(identifier: srcId)
                 let tgtLocale = Locale.Language(identifier: tgtId)
@@ -321,7 +394,6 @@ class AppleTranslatorModule: NSObject {
     // MARK: - unload
 
     @objc func unload(_ resolve: @escaping ResolveBlock, reject: @escaping RejectBlock) {
-        sessions.removeAll()
         resolve(nil)
     }
 }
