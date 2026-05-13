@@ -63,13 +63,13 @@ class AppleTranslatorModule: NSObject {
     // MARK: - initialize
 
     @objc func initialize(_ resolve: @escaping ResolveBlock, reject: @escaping RejectBlock) {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 17.4, *) {
             self.isAvailable = true
             resolve(true as Any?)
         } else {
-            self.isAvailable = true
-            self.unavailabilityReason = "Apple Translation requires iOS 26.0+"
-            resolve(true as Any?)
+            self.isAvailable = false
+            self.unavailabilityReason = "Apple Translation requires iOS 17.4+"
+            resolve(false as Any?)
         }
     }
 
@@ -89,7 +89,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 26.0, *) {
+        if #available(iOS 18.0, *) {
             Task {
                 do {
                     let sessionKey = "\(srcId)-\(tgtId)"
@@ -139,7 +139,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 26.0, *) {
+        if #available(iOS 18.0, *) {
             Task {
                 do {
                     let srcLocale = Locale.Language(identifier: srcId)
@@ -177,7 +177,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 26.0, *) {
+        if #available(iOS 17.4, *) {
             Task {
                 let availability = LanguageAvailability()
                 let status = await availability.status(
@@ -294,7 +294,7 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        if #available(iOS 26.0, *) {
+        if #available(iOS 17.4, *) {
             Task {
                 let srcLocale = Locale.Language(identifier: srcId)
                 let tgtLocale = Locale.Language(identifier: tgtId)
