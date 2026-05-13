@@ -1,4 +1,4 @@
-# MVA (VibeVoice)
+# Mobile Voice Assistant
 
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-111827)
 ![React Native](https://img.shields.io/badge/React%20Native-0.85-61DAFB)
