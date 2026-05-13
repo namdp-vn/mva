@@ -14,6 +14,7 @@ import {translationService} from '../../../services/TranslationService';
 import {ensureBundledModelInstalled} from '../../../native/models/BundledModelInstaller';
 import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
 import {markPacksDownloaded, markPacksSkipped} from '../../../services/languagePackStatus';
+import {useSettingsStore} from '../../../shared/store/settingsStore';
 
 const MOCK_MODEL: ModelInfo = {
   id: 'sensevoice-small',
@@ -23,6 +24,17 @@ const MOCK_MODEL: ModelInfo = {
   diskFootprintMB: 234,
   languages: ['EN', 'JA', 'KO', 'ZH'],
   inferenceSpeedRTF: 0.05,
+  isOptimizedFor: ['iPhone 15 Pro'],
+};
+
+const WHISPER_MODEL: ModelInfo = {
+  id: 'whisper-small',
+  name: 'Whisper-Small',
+  version: 'int8-2024',
+  quality: 'int8',
+  diskFootprintMB: 244,
+  languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
+  inferenceSpeedRTF: 0.12,
   isOptimizedFor: ['iPhone 15 Pro'],
 };
 
@@ -123,6 +135,10 @@ export const SplashScreen: React.FC = () => {
   const prewarmState = usePrewarmState();
   const overallStatus = useBootstrapOverallStatus();
   const targetLanguage = useTargetLanguage();
+  const sttEngine = useSettingsStore((s) => s.sttEngine);
+  const activeSttModel = sttEngine === 'whisper' ? WHISPER_MODEL : MOCK_MODEL;
+  const activeSttModelId = sttEngine === 'whisper' ? 'stt_whisper' : 'stt';
+  const activeSttLabel = sttEngine === 'whisper' ? 'Whisper-Small • EN / JA / KO / ZH / VI' : 'SenseVoice • EN / JA / KO / ZH';
   const {
     setModelDownloading,
     setModelDownloadProgress,
@@ -160,13 +176,13 @@ export const SplashScreen: React.FC = () => {
         initialize();
 
         // Step 1: Install STT model
-        setModelDownloading(MOCK_MODEL);
+        setModelDownloading(activeSttModel);
         try {
-          await ensureBundledModelInstalled('stt', (completed, total) => {
+          await ensureBundledModelInstalled(activeSttModelId, (completed, total) => {
             setModelDownloadProgress({bytesDownloaded: completed, totalBytes: total, percentage: total > 0 ? completed / total : 0});
           });
           await getSTTProcessorInstance().loadModel();
-          setModelReady(MOCK_MODEL);
+          setModelReady(activeSttModel);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'STT model install/load failed.';
           warnLog('[SplashScreen] STT model install/load failed:', error);
@@ -455,10 +471,10 @@ export const SplashScreen: React.FC = () => {
               {isInitializing || modelState.status === 'downloading' || useBootstrapStore.getState().state.translatorModel.status === 'downloading' ? (
                 <ProgressCard
                   title="Loading on-device models..."
-                  subtitle={`${MOCK_MODEL.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
+                  subtitle={`${activeSttModel.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
                   progress={getProgressPercentage()}
                   bytesDownloaded={modelState.downloadProgress?.bytesDownloaded ?? 0}
-                  totalBytes={modelState.downloadProgress?.totalBytes ?? MOCK_MODEL.diskFootprintMB * 1024 * 1024}
+                  totalBytes={modelState.downloadProgress?.totalBytes ?? activeSttModel.diskFootprintMB * 1024 * 1024}
                   status={modelState.status === 'downloading' ? 'downloading' : 'processing'}
                 />
               ) : (
@@ -495,7 +511,7 @@ export const SplashScreen: React.FC = () => {
         <View style={styles.footer}>
           <View style={[styles.metadataContainer, {borderColor: ringBorderColor}]}>
             <Text style={[styles.metadataIconGlyph, {color: theme.colors.secondary}]}>◈</Text>
-            <Text style={[styles.metadataText, {color: theme.colors.text.tertiary}]}>SenseVoice • EN / JA / KO / ZH</Text>
+            <Text style={[styles.metadataText, {color: theme.colors.text.tertiary}]}>{activeSttLabel}</Text>
           </View>
 
           {isInitializing && (

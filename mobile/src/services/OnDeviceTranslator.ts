@@ -4,7 +4,7 @@ import {AppState, NativeEventSubscription, Platform} from 'react-native';
 import {useSettingsStore} from '../shared/store/settingsStore';
 import {warnLog, infoLog} from '../shared/utils/logger';
 
-export type TranslationSourceLanguage = 'en' | 'ja' | 'ko' | 'zh';
+export type TranslationSourceLanguage = 'en' | 'ja' | 'ko' | 'zh' | 'vi';
 
 export function mapSourceLanguageToNllb(source: SourceLanguage): TranslationSourceLanguage {
   switch (source) {
@@ -14,6 +14,8 @@ export function mapSourceLanguageToNllb(source: SourceLanguage): TranslationSour
       return 'ja';
     case 'ko':
       return 'ko';
+    case 'vi':
+      return 'vi';
     case 'zh':
     default:
       return 'zh';

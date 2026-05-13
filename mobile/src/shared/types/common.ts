@@ -7,7 +7,7 @@
 
 export type SessionId = string;
 export type UtteranceId = string;
-export type SourceLanguage = 'en' | 'ja' | 'ko' | 'zh';
+export type SourceLanguage = 'en' | 'ja' | 'ko' | 'zh' | 'vi';
 
 /**
  * Target translation language.

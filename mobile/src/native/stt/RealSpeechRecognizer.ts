@@ -9,6 +9,8 @@ import type { MeetingPipelineEvent } from '../../shared/types/meeting';
 import { infoLog, warnLog } from '../../shared/utils/logger';
 import { LanguageDetector } from './LanguageDetector';
 import { ensureBundledModelInstalled } from '../models/BundledModelInstaller';
+import type { SttEngineType } from '../../shared/store/settingsStore';
+import { useSettingsStore } from '../../shared/store/settingsStore';
 
 const SAMPLE_RATE = 16000;
 const IS_ANDROID = Platform.OS === 'android';
@@ -110,6 +112,7 @@ interface FinalTranscriptionJob {
 export class RealSpeechRecognizer {
   private engine: SttEngine | null = null;
   private mic: PcmLiveStreamHandle | null = null;
+  private activeEngineType: SttEngineType = 'sense_voice';
   private unsubscribeData: (() => void) | null = null;
   private unsubscribeError: (() => void) | null = null;
   private sessionId: SessionId | null = null;
@@ -163,35 +166,57 @@ export class RealSpeechRecognizer {
     this.lastFinalizeReason = null;
     this.hardCapCount = 0;
 
+    const engineType = useSettingsStore.getState().sttEngine;
+    this.activeEngineType = engineType;
+    const isWhisper = engineType === 'whisper';
+
     emit({
       type: 'pipeline_status',
       session_id: sessionId,
       status: 'processing',
       timestamp_ms: Date.now(),
-      details: 'Preparing SenseVoice bundled model',
+      details: `Preparing ${isWhisper ? 'Whisper-Small' : 'SenseVoice'} bundled model`,
     });
 
-    const modelDir = await this.prepareModelDirectory(emit);
+    const modelDir = await this.prepareModelDirectory(emit, engineType);
 
-    this.engine = await createSTT({
-      modelPath: fileModelPath(modelDir),
-      modelType: 'sense_voice',
-      preferInt8: true,
-      provider: 'cpu',
-      numThreads: 2,
-      modelOptions: {
-        senseVoice: {
-          useItn: true,
+    if (isWhisper) {
+      this.engine = await createSTT({
+        modelPath: fileModelPath(modelDir),
+        modelType: 'whisper',
+        provider: 'cpu',
+        numThreads: 2,
+        modelOptions: {
+          whisper: {
+            encoder: 'small-encoder.int8.onnx',
+            decoder: 'small-decoder.int8.onnx',
+            tokens: 'small-tokens.txt',
+            language: 'auto',
+            task: 'transcribe',
+          },
         },
-      },
-    });
+      });
+    } else {
+      this.engine = await createSTT({
+        modelPath: fileModelPath(modelDir),
+        modelType: 'sense_voice',
+        preferInt8: true,
+        provider: 'cpu',
+        numThreads: 2,
+        modelOptions: {
+          senseVoice: {
+            useItn: true,
+          },
+        },
+      });
+    }
 
     emit({
       type: 'pipeline_status',
       session_id: sessionId,
       status: 'processing',
       timestamp_ms: Date.now(),
-      details: 'SenseVoice recognizer initialized',
+      details: `${isWhisper ? 'Whisper-Small' : 'SenseVoice'} recognizer initialized`,
     });
 
     await this.activateAudioSession(emit);
@@ -359,7 +384,8 @@ export class RealSpeechRecognizer {
 
     if (isSpeech) {
       if (!this.currentUtteranceId) {
-        this.currentUtteranceId = `${sessionId}-sense-${++this.utteranceCounter}`;
+        const enginePrefix = this.activeEngineType === 'whisper' ? 'whisper' : 'sense';
+        this.currentUtteranceId = `${sessionId}-${enginePrefix}-${++this.utteranceCounter}`;
         this.currentRevision = 0;
         this.currentText = '';
         this.utteranceStartMs = now;
@@ -475,14 +501,16 @@ export class RealSpeechRecognizer {
     );
   }
 
-  private async prepareModelDirectory(emit: (event: MeetingPipelineEvent) => void): Promise<string> {
-    const localModelDir = await ensureBundledModelInstalled('stt', (completed, total, file) => {
+  private async prepareModelDirectory(emit: (event: MeetingPipelineEvent) => void, engineType: SttEngineType = 'sense_voice'): Promise<string> {
+    const modelId = engineType === 'whisper' ? 'stt_whisper' : 'stt';
+    const modelLabel = engineType === 'whisper' ? 'Whisper-Small' : 'SenseVoice';
+    const localModelDir = await ensureBundledModelInstalled(modelId, (completed, total, file) => {
       emit({
         type: 'pipeline_status',
         session_id: this.sessionId!,
         status: 'processing',
         timestamp_ms: Date.now(),
-        details: `Installing bundled SenseVoice (${completed}/${total}): ${file}`,
+        details: `Installing bundled ${modelLabel} (${completed}/${total}): ${file}`,
       });
     });
 
@@ -747,6 +775,7 @@ export class RealSpeechRecognizer {
     if (normalized.startsWith('ja') || normalized.startsWith('jp')) return 'ja';
     if (normalized.startsWith('ko')) return 'ko';
     if (normalized.startsWith('zh') || normalized.startsWith('cn')) return 'zh';
+    if (normalized.startsWith('vi')) return 'vi';
     const id = utteranceId ?? this.currentUtteranceId ?? 'unknown';
     const detected = this.detector.detectFromText(text, id);
     return detected.language;
