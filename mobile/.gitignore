@@ -11,6 +11,7 @@ android/app/build/
 ios/Pods/
 ios/build/
 ios/build-release/
+ios/.xcode.env.local
 ios/**/*.xcuserstate
 ios/**/xcuserdata/
 
