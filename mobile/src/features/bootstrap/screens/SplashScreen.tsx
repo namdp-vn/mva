@@ -228,6 +228,27 @@ export const SplashScreen: React.FC = () => {
               let keepRetrying = true;
 
               while (keepRetrying && pendingPacks.length > 0) {
+                // --- Pre-check: skip download UI if packs are already installed ---
+                // Apple LanguageAvailability.status() can inconsistently report .supported
+                // for packs that are already installed, causing the progress card to flash
+                // briefly when downloadLanguageIfNeeded immediately resolves. Re-verify here.
+                if (nativeModule) {
+                  const preCheckStatuses = await Promise.all(
+                    pendingPacks.map(p =>
+                      nativeModule.getLanguagePackStatus(p.srcLang, targetLanguage).catch(() => 'unknown'),
+                    ),
+                  );
+                  const alreadyAllInstalled = preCheckStatuses.every(s => s === 'installed');
+                  if (alreadyAllInstalled) {
+                    markPacksDownloaded();
+                    warnLog('[SplashScreen] All packs already installed, skipping download UI');
+                    keepRetrying = false;
+                    break;
+                  }
+                  // Filter to only packs that genuinely need downloading
+                  pendingPacks = pendingPacks.filter((_, i) => preCheckStatuses[i] !== 'installed');
+                }
+
                 // --- Download phase ---
                 setLangPackStep('downloading');
                 for (let i = 0; i < pendingPacks.length; i++) {
