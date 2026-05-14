@@ -275,8 +275,8 @@ export class RealSpeechRecognizer {
     if (this.currentUtteranceId && this.sampleBuffer.length > 0 && this.sessionId) {
       this.lastFinalizeReason = 'stop';
       this.finalizeUtterance(Date.now(), emit);
-      await this.processingChain.catch(() => undefined);
     }
+    // Stop the PCM feed before draining so no new items enter the chain.
     if (this.unsubscribeData) {
       this.unsubscribeData();
       this.unsubscribeData = null;
@@ -289,6 +289,11 @@ export class RealSpeechRecognizer {
       await this.mic.stop();
       this.mic = null;
     }
+    // Always drain the inference chain BEFORE destroying the engine. If we
+    // destroy the engine while transcribeSamples() is running the native
+    // promise may never resolve, permanently stalling the chain and blocking
+    // all inference in the next session.
+    await this.processingChain.catch(() => undefined);
     if (this.engine) {
       await this.engine.destroy();
       this.engine = null;
@@ -307,6 +312,9 @@ export class RealSpeechRecognizer {
     this.sessionAudioBuffer = [];
     this.prerollWritePos = 0;
     this.prerollFilled = false;
+    this.nextUtteranceSeed = [];
+    this.processingChain = Promise.resolve();
+    this.inferenceActive = false;
     this.sessionId = null;
     this.emitFn = null;
   }
