@@ -90,6 +90,13 @@ const MAX_UTTERANCE_SAMPLES = SAMPLE_RATE * (IS_ANDROID ? 20 : 15);
 // field user can confirm their mic levels match our threshold expectations.
 const RMS_STATS_WINDOW_MS = 2000;
 
+// Whisper-specific limits: autoregressive decoder takes ~5-10s per utterance
+// on CPU. No partials (each partial = full encoder+decoder run), shorter
+// hard cap so a single sentence doesn't consume 15s × decoder time.
+const WHISPER_MAX_UTTERANCE_SAMPLES = SAMPLE_RATE * 8;
+// Maximum time to wait for in-flight Whisper inference when stop() is called.
+const WHISPER_STOP_DRAIN_TIMEOUT_MS = 8000;
+
 type AudioSessionNativeModule = {
   activateRecordingSession?: () => Promise<boolean>;
   deactivateRecordingSession?: () => Promise<boolean>;
@@ -156,7 +163,7 @@ export class RealSpeechRecognizer {
   private lastFinalizeReason: 'silence' | 'soft_cap' | 'hard_cap' | 'stop' | 'too_short' | 'empty_result' | null = null;
   private hardCapCount = 0;
 
-  async start(sessionId: SessionId, emit: (event: MeetingPipelineEvent) => void): Promise<void> {
+  async start(sessionId: SessionId, emit: (event: MeetingPipelineEvent) => void, sourceLanguage?: SourceLanguage): Promise<void> {
     this.sessionId = sessionId;
     this.emitFn = emit;
     this.detector.setSession(sessionId);
@@ -181,17 +188,22 @@ export class RealSpeechRecognizer {
     const modelDir = await this.prepareModelDirectory(emit, engineType);
 
     if (isWhisper) {
+      // When the meeting source language is known, pass it explicitly to Whisper.
+      // With 'auto', Whisper-Small often misidentifies tonal languages (VI→ZH)
+      // on short utterances. Explicit language code skips the detection step and
+      // gives significantly better accuracy.
+      const whisperLang = sourceLanguage ?? 'auto';
       this.engine = await createSTT({
         modelPath: fileModelPath(modelDir),
         modelType: 'whisper',
         provider: 'cpu',
-        numThreads: 2,
+        numThreads: 4,
         modelOptions: {
           whisper: {
             encoder: 'small-encoder.int8.onnx',
             decoder: 'small-decoder.int8.onnx',
             tokens: 'small-tokens.txt',
-            language: 'auto',
+            language: whisperLang,
             task: 'transcribe',
           },
         },
@@ -293,7 +305,13 @@ export class RealSpeechRecognizer {
     // destroy the engine while transcribeSamples() is running the native
     // promise may never resolve, permanently stalling the chain and blocking
     // all inference in the next session.
-    await this.processingChain.catch(() => undefined);
+    // For Whisper, cap the wait — the decoder can take 5-10s per utterance and
+    // the user already pressed Stop; we accept losing the last partial result.
+    const drainTimeout = this.activeEngineType === 'whisper' ? WHISPER_STOP_DRAIN_TIMEOUT_MS : 60000;
+    await Promise.race([
+      this.processingChain.catch(() => undefined),
+      new Promise<void>(resolve => setTimeout(resolve, drainTimeout)),
+    ]);
     if (this.engine) {
       await this.engine.destroy();
       this.engine = null;
@@ -430,21 +448,32 @@ export class RealSpeechRecognizer {
     const utteranceDurationMs = now - this.utteranceStartMs;
     const silenceSinceSpeech = this.lastSpeechMs ? now - this.lastSpeechMs : 0;
 
-    if (this.sampleBuffer.length >= MAX_UTTERANCE_SAMPLES) {
+    const hardCap = this.activeEngineType === 'whisper' ? WHISPER_MAX_UTTERANCE_SAMPLES : MAX_UTTERANCE_SAMPLES;
+    if (this.sampleBuffer.length >= hardCap) {
       this.hardCapCount += 1;
       this.lastFinalizeReason = 'hard_cap';
       infoLog('[RealSTT] hard-cap final', {
         id: this.currentUtteranceId,
         samples: this.sampleBuffer.length,
         hardCapCount: this.hardCapCount,
+        engine: this.activeEngineType,
       });
       this.finalizeUtterance(now, emit);
       return;
     }
 
+    // Whisper's autoregressive decoder makes each partial call as expensive as
+    // a full final transcription. Disable partials entirely for Whisper — only
+    // emit on silence/cap to keep the inference queue from backing up.
     const partialBufferReady =
       !IS_ANDROID || utteranceDurationMs >= ANDROID_MIN_PARTIAL_BUFFER_MS;
-    if (isSpeech && partialBufferReady && !this.inferenceActive && now - this.lastPartialMs >= PARTIAL_INTERVAL_MS) {
+    if (
+      this.activeEngineType !== 'whisper' &&
+      isSpeech &&
+      partialBufferReady &&
+      !this.inferenceActive &&
+      now - this.lastPartialMs >= PARTIAL_INTERVAL_MS
+    ) {
       this.lastPartialMs = now;
       this.scheduleInference(() => this.emitPartial(Date.now(), emit));
     }

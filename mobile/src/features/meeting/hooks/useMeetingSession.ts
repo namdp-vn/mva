@@ -1139,7 +1139,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
           realSpeechRecognizer = getRealSpeechRecognizer();
           console.warn('[useMeetingSession] real recognizer start: instance ready', {hasInstance: !!realSpeechRecognizer});
           realRecognizerRef.current = realSpeechRecognizer;
-          await realSpeechRecognizer.start(sessionId, handleIncomingPipelineEvent);
+          await realSpeechRecognizer.start(sessionId, handleIncomingPipelineEvent, sourceLanguage);
           console.warn('[useMeetingSession] real recognizer start: success', {sessionId});
           startedWithRealRecognizer = true;
         } catch (error) {
