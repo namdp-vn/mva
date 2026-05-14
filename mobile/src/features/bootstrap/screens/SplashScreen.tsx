@@ -11,7 +11,7 @@ import type {RootStackParamList} from '../../../app/navigation/router';
 import {getSTTProcessorInstance} from '../../../native/stt/STTProcessor';
 import {warnLog} from '../../../shared/utils/logger';
 import {translationService} from '../../../services/TranslationService';
-import {ensureBundledModelInstalled, areInstalledModelFilesPresent} from '../../../native/models/BundledModelInstaller';
+import {ensureBundledModelInstalled, areInstalledModelFilesPresent, areBundledAssetsAvailable} from '../../../native/models/BundledModelInstaller';
 import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
 import {markPacksDownloaded, markPacksSkipped} from '../../../services/languagePackStatus';
 import {useSettingsStore} from '../../../shared/store/settingsStore';
@@ -176,14 +176,28 @@ export const SplashScreen: React.FC = () => {
         initialize();
 
         // Step 1: Install STT model
+        // If selected engine's assets are missing from bundle (e.g. Whisper not bundled yet),
+        // fall back gracefully to SenseVoice so the app can still start.
+        let resolvedModelId = activeSttModelId;
+        let resolvedModel = activeSttModel;
+        if (resolvedModelId === 'stt_whisper') {
+          const whisperAssetsPresent = await areBundledAssetsAvailable('stt_whisper');
+          if (!whisperAssetsPresent) {
+            warnLog('[SplashScreen] Whisper assets not bundled, falling back to SenseVoice');
+            resolvedModelId = 'stt';
+            resolvedModel = MOCK_MODEL;
+            useSettingsStore.getState().setSttEngine('sense_voice');
+          }
+        }
+
         // Check if already installed to avoid flashing a progress bar that disappears instantly
-        const sttAlreadyInstalled = await areInstalledModelFilesPresent(activeSttModelId);
+        const sttAlreadyInstalled = await areInstalledModelFilesPresent(resolvedModelId);
         if (!sttAlreadyInstalled) {
-          setModelDownloading(activeSttModel);
+          setModelDownloading(resolvedModel);
         }
         try {
           await ensureBundledModelInstalled(
-            activeSttModelId,
+            resolvedModelId,
             sttAlreadyInstalled
               ? undefined
               : (completed, total) => {
@@ -191,7 +205,7 @@ export const SplashScreen: React.FC = () => {
                 },
           );
           await getSTTProcessorInstance().loadModel();
-          setModelReady(activeSttModel);
+          setModelReady(resolvedModel);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'STT model install/load failed.';
           warnLog('[SplashScreen] STT model install/load failed:', error);

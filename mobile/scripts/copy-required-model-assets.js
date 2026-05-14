@@ -7,8 +7,12 @@ const projectRoot = path.resolve(__dirname, '..');
 const modelSrcRoot = path.join(projectRoot, 'assets', 'models');
 const modelDstRoot = process.argv[2];
 const androidModelRoot = path.join(projectRoot, 'android', 'app', 'src', 'main', 'assets', 'models');
-const senseVoiceArchiveUrl =
-  'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2';
+const MODEL_ARCHIVE_URLS = {
+  'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17':
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2',
+  'sherpa-onnx-whisper-small-int8':
+    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small-int8.tar.bz2',
+};
 
 if (!modelDstRoot) {
   throw new Error('Missing destination models directory argument');
@@ -18,6 +22,10 @@ const requiredModels = [
   {
     folder: 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17',
     files: ['model.int8.onnx', 'tokens.txt'],
+  },
+  {
+    folder: 'sherpa-onnx-whisper-small-int8',
+    files: ['small-encoder.int8.onnx', 'small-decoder.int8.onnx', 'small-tokens.txt'],
   },
   {
     folder: 'speaker-diarization',
@@ -42,18 +50,23 @@ function ensureFileFromAndroid(model, file) {
   return true;
 }
 
-function ensureSenseVoiceArchiveFiles(model) {
+function ensureModelArchiveFiles(model) {
   const missingFiles = model.files.filter((file) => !fs.existsSync(path.join(modelSrcRoot, model.folder, file)));
 
   if (missingFiles.length === 0) {
     return;
   }
 
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mva-sense-voice-'));
+  const archiveUrl = MODEL_ARCHIVE_URLS[model.folder];
+  if (!archiveUrl) {
+    throw new Error(`No download URL configured for model: ${model.folder}`);
+  }
+
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), `mva-${model.folder}-`));
   const archivePath = path.join(tmpRoot, `${model.folder}.tar.bz2`);
 
   console.log(`[models] Downloading ${model.folder} for iOS bundle assets...`);
-  execFileSync('curl', ['-L', '--fail', '--silent', '--show-error', '-o', archivePath, senseVoiceArchiveUrl], {
+  execFileSync('curl', ['-L', '--fail', '--silent', '--show-error', '-o', archivePath, archiveUrl], {
     stdio: 'inherit',
   });
 
@@ -87,8 +100,8 @@ function ensureRequiredSourceAssets() {
         continue;
       }
 
-      if (model.folder === 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17') {
-        ensureSenseVoiceArchiveFiles(model);
+      if (MODEL_ARCHIVE_URLS[model.folder]) {
+        ensureModelArchiveFiles(model);
         continue;
       }
 
