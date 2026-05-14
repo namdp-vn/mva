@@ -11,7 +11,7 @@ import type {RootStackParamList} from '../../../app/navigation/router';
 import {getSTTProcessorInstance} from '../../../native/stt/STTProcessor';
 import {warnLog} from '../../../shared/utils/logger';
 import {translationService} from '../../../services/TranslationService';
-import {ensureBundledModelInstalled} from '../../../native/models/BundledModelInstaller';
+import {ensureBundledModelInstalled, areInstalledModelFilesPresent} from '../../../native/models/BundledModelInstaller';
 import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
 import {markPacksDownloaded, markPacksSkipped} from '../../../services/languagePackStatus';
 import {useSettingsStore} from '../../../shared/store/settingsStore';
@@ -176,11 +176,20 @@ export const SplashScreen: React.FC = () => {
         initialize();
 
         // Step 1: Install STT model
-        setModelDownloading(activeSttModel);
+        // Check if already installed to avoid flashing a progress bar that disappears instantly
+        const sttAlreadyInstalled = await areInstalledModelFilesPresent(activeSttModelId);
+        if (!sttAlreadyInstalled) {
+          setModelDownloading(activeSttModel);
+        }
         try {
-          await ensureBundledModelInstalled(activeSttModelId, (completed, total) => {
-            setModelDownloadProgress({bytesDownloaded: completed, totalBytes: total, percentage: total > 0 ? completed / total : 0});
-          });
+          await ensureBundledModelInstalled(
+            activeSttModelId,
+            sttAlreadyInstalled
+              ? undefined
+              : (completed, total) => {
+                  setModelDownloadProgress({bytesDownloaded: completed, totalBytes: total, percentage: total > 0 ? completed / total : 0});
+                },
+          );
           await getSTTProcessorInstance().loadModel();
           setModelReady(activeSttModel);
         } catch (error) {
