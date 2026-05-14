@@ -7,11 +7,20 @@ const projectRoot = path.resolve(__dirname, '..');
 const modelSrcRoot = path.join(projectRoot, 'assets', 'models');
 const modelDstRoot = process.argv[2];
 const androidModelRoot = path.join(projectRoot, 'android', 'app', 'src', 'main', 'assets', 'models');
-const MODEL_ARCHIVE_URLS = {
-  'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17':
-    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2',
-  'sherpa-onnx-whisper-small-int8':
-    'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small-int8.tar.bz2',
+
+// Maps target folder name → { url, archiveFolder }
+// archiveFolder: folder name inside the .tar.bz2 (may differ from target folder)
+const MODEL_ARCHIVE_CONFIG = {
+  'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2',
+    archiveFolder: 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17',
+  },
+  // Archive is sherpa-onnx-whisper-small.tar.bz2, folder inside is sherpa-onnx-whisper-small,
+  // but we install to sherpa-onnx-whisper-small-int8 to match bundledModels.ts config.
+  'sherpa-onnx-whisper-small-int8': {
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2',
+    archiveFolder: 'sherpa-onnx-whisper-small',
+  },
 };
 
 if (!modelDstRoot) {
@@ -57,29 +66,30 @@ function ensureModelArchiveFiles(model) {
     return;
   }
 
-  const archiveUrl = MODEL_ARCHIVE_URLS[model.folder];
-  if (!archiveUrl) {
+  const archiveConfig = MODEL_ARCHIVE_CONFIG[model.folder];
+  if (!archiveConfig) {
     throw new Error(`No download URL configured for model: ${model.folder}`);
   }
 
+  const {url, archiveFolder} = archiveConfig;
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), `mva-${model.folder}-`));
-  const archivePath = path.join(tmpRoot, `${model.folder}.tar.bz2`);
+  const archivePath = path.join(tmpRoot, `${archiveFolder}.tar.bz2`);
 
   console.log(`[models] Downloading ${model.folder} for iOS bundle assets...`);
-  execFileSync('curl', ['-L', '--fail', '--silent', '--show-error', '-o', archivePath, archiveUrl], {
+  execFileSync('curl', ['-L', '--fail', '--silent', '--show-error', '-o', archivePath, url], {
     stdio: 'inherit',
   });
 
-  execFileSync('tar', ['-xjf', archivePath, '-C', tmpRoot, ...missingFiles.map((file) => `${model.folder}/${file}`)], {
+  execFileSync('tar', ['-xjf', archivePath, '-C', tmpRoot, ...missingFiles.map((file) => `${archiveFolder}/${file}`)], {
     stdio: 'inherit',
   });
 
   for (const file of missingFiles) {
-    const extractedFile = path.join(tmpRoot, model.folder, file);
+    const extractedFile = path.join(tmpRoot, archiveFolder, file);
     const dstFile = path.join(modelSrcRoot, model.folder, file);
 
     if (!fs.existsSync(extractedFile)) {
-      throw new Error(`Downloaded archive did not contain required model file: ${model.folder}/${file}`);
+      throw new Error(`Downloaded archive did not contain required model file: ${archiveFolder}/${file}`);
     }
 
     ensureDir(path.dirname(dstFile));
@@ -100,7 +110,7 @@ function ensureRequiredSourceAssets() {
         continue;
       }
 
-      if (MODEL_ARCHIVE_URLS[model.folder]) {
+      if (MODEL_ARCHIVE_CONFIG[model.folder]) {
         ensureModelArchiveFiles(model);
         continue;
       }
