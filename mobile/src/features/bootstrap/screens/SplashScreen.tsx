@@ -254,26 +254,25 @@ export const SplashScreen: React.FC = () => {
                   while (!packInstalled && nativeModule) {
                     setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
                     try {
-                      const result = await Promise.race([
+                      // Ignore the return value — always verify with getLanguagePackStatus
+                      // because downloadLanguageIfNeeded can return true even when the pack
+                      // is not yet fully installed (e.g. race in the native bridge).
+                      await Promise.race([
                         nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage),
-                        new Promise<boolean>(r => setTimeout(() => r(false), PACK_DOWNLOAD_TIMEOUT_MS)),
+                        new Promise<void>(r => setTimeout(r, PACK_DOWNLOAD_TIMEOUT_MS)),
                       ]);
-                      if (result) {
-                        packInstalled = true;
-                      } else {
-                        // Popup was dismissed — check if iOS finished the download in background
-                        const s = await nativeModule
-                          .getLanguagePackStatus(pack.srcLang, targetLanguage)
-                          .catch(() => 'unknown' as const);
-                        if (s === 'installed') {
-                          packInstalled = true;
-                        } else {
-                          // Wait for iOS sheet dismissal animation, then re-show popup
-                          await delay(700);
-                        }
-                      }
                     } catch {
                       warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
+                    }
+
+                    // Source of truth: check actual install status regardless of what download returned
+                    const s = await nativeModule
+                      .getLanguagePackStatus(pack.srcLang, targetLanguage)
+                      .catch(() => 'unknown' as const);
+                    if (s === 'installed') {
+                      packInstalled = true;
+                    } else {
+                      // Not installed yet — wait for iOS sheet animation then re-show popup
                       await delay(700);
                     }
                   }
