@@ -110,7 +110,21 @@ export function MeetingScreen(): React.JSX.Element {
   }, [startMeeting, targetLanguage]);
 
   const handleStopMeeting = useCallback(async () => {
-    console.warn('[MeetingScreen] handleStopMeeting: starting');
+    const confirmed = await new Promise<boolean>(resolve => {
+      Alert.alert(
+        'Kết thúc cuộc hội thoại?',
+        'Cuộc hội thoại sẽ được dừng lại và lưu để xem lại.',
+        [
+          {text: 'Hủy', style: 'cancel', onPress: () => resolve(false)},
+          {text: 'Dừng & Lưu', style: 'destructive', onPress: () => resolve(true)},
+        ],
+        {cancelable: true, onDismiss: () => resolve(false)},
+      );
+    });
+
+    if (!confirmed) return;
+
+    console.warn('[MeetingScreen] handleStopMeeting: confirmed, starting stop');
     try {
       console.warn('[MeetingScreen] calling stopMeeting()...');
       const result = await stopMeeting();
@@ -127,8 +141,6 @@ export function MeetingScreen(): React.JSX.Element {
         console.warn('[MeetingScreen] sessionId is null, not navigating');
       }
     } catch (error) {
-      // If stopMeeting itself throws (not just warns), do not navigate -
-      // something went wrong that the user should see on the meeting screen.
       console.warn('[MeetingScreen] stopMeeting failed, staying on screen:', error);
     }
   }, [stopMeeting, navigation]);

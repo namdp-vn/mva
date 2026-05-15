@@ -79,6 +79,8 @@ interface MeetingStore {
   pipelineStatus: PipelineStatus;
   pipelineError: string | null;
   startSession: (sourceLanguage: SourceLanguage, targetLanguage: TargetLanguage) => SessionId;
+  /** Immediately transition recording→stopping for instant UI feedback. */
+  beginStop: () => void;
   stopSession: () => void;
   interruptSession: () => void;
   resetSession: () => void;
@@ -130,9 +132,16 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     return id;
   },
 
-  stopSession: () => {
+  beginStop: () => {
     const {session} = get();
     if (session.id && session.status === 'recording') {
+      set({session: {...session, status: 'stopping'}});
+    }
+  },
+
+  stopSession: () => {
+    const {session} = get();
+    if (session.id && (session.status === 'recording' || session.status === 'stopping')) {
       const stoppingSessionId = session.id;
       set({session: {...session, status: 'stopping'}});
       setTimeout(() => {

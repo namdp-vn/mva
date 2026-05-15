@@ -1199,6 +1199,9 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     console.warn('[useMeetingSession] stopMeeting CALLED');
     const persistence = getPersistenceService();
     const translator = getOnDeviceTranslator();
+    // Immediately flip to 'stopping' so the stop button disappears and the
+    // status bar shows "Stopping" — don't wait for the slow async cleanup.
+    store.beginStop();
     stoppingSessionRef.current = true;
     translator.cancelPending();
     const recognizer = realRecognizerRef.current ?? realSpeechRecognizer;
@@ -1223,7 +1226,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     releaseMeetingPipelineInstance();
 
     await translator.unload().catch(() => undefined);
-    await translator.waitForIdle(30000).catch(() => false);
+    await translator.waitForIdle(5000).catch(() => false);
 
     // Capture the freshest possible session snapshot AFTER recognizer/pipeline stop,
     // so any flushed final utterance is included in persistence/review/export.

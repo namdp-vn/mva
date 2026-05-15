@@ -255,6 +255,11 @@ export const SplashScreen: React.FC = () => {
                     } catch {
                       warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
                     }
+                    // Allow iOS to finish dismissing the download sheet before
+                    // the next pack — topViewController() can return the
+                    // sheet VC mid-animation, causing the next hosting controller
+                    // to be parented to a dismissing VC and never show a popup.
+                    await delay(700);
                   }
                 }
 
