@@ -487,11 +487,6 @@ export const SplashScreen: React.FC = () => {
                   </View>
                 ))}
               </View>
-              <Text style={[styles.langPackNote, {color: theme.colors.text.tertiary}]}>
-                {isVerifying
-                  ? 'Xác nhận trạng thái tải xuống...'
-                  : 'Ấn "Tải xuống" và đợi hoàn tất. Popup tự mở lại nếu đóng sớm.'}
-              </Text>
             </View>
           ) : langPackStep === 'retry' ? (
             <View style={[styles.langPackCard, {borderColor: '#ffb4ab', backgroundColor: isDark ? 'rgba(255,180,171,0.06)' : 'rgba(255,180,171,0.08)'}]}>
