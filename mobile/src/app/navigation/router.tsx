@@ -27,6 +27,7 @@ type AppNavigation = {
     ...args: RootStackParamList[T] extends undefined ? [] : [params: RootStackParamList[T]]
   ) => void;
   goBack: () => void;
+  reset: (state: {index: number; routes: Array<{name: RouteName; params?: RootStackParamList[RouteName]}>}) => void;
 };
 
 type RouterContextValue = {
@@ -58,12 +59,20 @@ export function AppRouterProvider({children}: {children: React.ReactNode}) {
     setStack(prev => (prev.length > 1 ? prev.slice(0, -1) : prev));
   }, []);
 
+  const reset = useCallback((state: {index: number; routes: Array<{name: RouteName; params?: RootStackParamList[RouteName]}>}) => {
+    const nextStack = state.routes.map(route => ({
+      name: route.name,
+      params: route.params,
+    })) as RouteState[];
+    setStack(nextStack.length > 0 ? nextStack.slice(0, state.index + 1) : [{name: 'History', params: undefined}]);
+  }, []);
+
   const value = useMemo<RouterContextValue>(
     () => ({
       route: stack[stack.length - 1],
-      navigation: {navigate, replace, goBack},
+      navigation: {navigate, replace, goBack, reset},
     }),
-    [stack, navigate, replace, goBack],
+    [stack, navigate, replace, goBack, reset],
   );
 
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;

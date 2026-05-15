@@ -51,7 +51,7 @@ export const DIARIZATION_THRESHOLD_MIN = 0.3;
 export const DIARIZATION_THRESHOLD_MAX = 0.9;
 export const DEFAULT_DIARIZATION_THRESHOLD = 0.55;
 
-export type SttEngineType = 'sense_voice' | 'whisper';
+export type SttEngineType = 'sense_voice';
 export const DEFAULT_STT_ENGINE: SttEngineType = 'sense_voice';
 
 interface SettingsState {
@@ -65,7 +65,7 @@ interface SettingsState {
   /** Speaker diarization sensitivity threshold (default: 0.55, range: 0.3-0.9) */
   diarizationThreshold: number;
   setDiarizationThreshold: (threshold: number) => void;
-  /** STT engine: SenseVoice (EN/JA/KO/ZH) or Whisper Small (EN/JA/KO/ZH/VI) */
+  /** STT engine: SenseVoice (EN/JA/KO/ZH). */
   sttEngine: SttEngineType;
   setSttEngine: (engine: SttEngineType) => void;
 }
@@ -112,7 +112,7 @@ export const useSettingsStore = create<SettingsState>()(
           themeMode: state.themeMode ?? 'system',
           targetLanguage: state.targetLanguage ?? DEFAULT_TARGET_LANGUAGE,
           diarizationThreshold: upgradedThreshold,
-          sttEngine: (state as any).sttEngine ?? DEFAULT_STT_ENGINE,
+          sttEngine: DEFAULT_STT_ENGINE,
         } as SettingsState;
       },
     }

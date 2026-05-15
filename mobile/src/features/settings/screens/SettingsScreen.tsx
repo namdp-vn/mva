@@ -29,7 +29,6 @@ import {
   useTargetLanguage,
   useThemeMode,
   useDiarizationThreshold,
-  useSttEngine,
   TARGET_LANGUAGE_OPTIONS,
   getLanguageOption,
 } from '../../../shared/store';
@@ -73,8 +72,6 @@ export function SettingsScreen(): React.JSX.Element {
   const currentLangOption = getLanguageOption(targetLanguage);
   const diarizationThreshold = useDiarizationThreshold();
   const {setDiarizationThreshold} = useSettingsStore();
-  const sttEngine = useSttEngine();
-  const {setSttEngine} = useSettingsStore();
   const translationEngineLabel = Platform.OS === 'ios' ? 'Apple Translate' : 'Opus-MT';
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
@@ -251,34 +248,16 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.sttEngineCard}>
               <View style={styles.settingInfoNoMargin}>
                 <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Speech Recognition Engine</Text>
-                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Takes effect on next meeting. Whisper adds Vietnamese support.</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>SenseVoice bundled for offline EN / JA / KO / ZH speech recognition.</Text>
               </View>
               <View style={styles.sttEngineRow}>
-                {([
-                  {key: 'sense_voice' as const, label: 'SenseVoice', langs: 'EN · JA · KO · ZH'},
-                  {key: 'whisper' as const, label: 'Whisper', langs: 'EN · JA · KO · ZH · VI'},
-                ] as const).map((option) => {
-                  const active = sttEngine === option.key;
-                  return (
-                    <TouchableOpacity
-                      key={option.key}
-                      style={[
-                        styles.sttEngineButton,
-                        active
-                          ? {backgroundColor: theme.colors.primary + '25', borderColor: theme.colors.primary}
-                          : {backgroundColor: theme.colors.surface.container, borderColor: theme.colors.border.subtle},
-                      ]}
-                      onPress={() => setSttEngine(option.key)}
-                      activeOpacity={0.7}>
-                      <Text style={[styles.sttEngineLabel, {color: active ? theme.colors.primary : theme.colors.text.primary}]}>
-                        {option.label}
-                      </Text>
-                      <Text style={[styles.sttEngineLangs, {color: active ? theme.colors.primary : theme.colors.text.tertiary}]}>
-                        {option.langs}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                <View style={[
+                  styles.sttEngineButton,
+                  {backgroundColor: theme.colors.primary + '25', borderColor: theme.colors.primary},
+                ]}>
+                  <Text style={[styles.sttEngineLabel, {color: theme.colors.primary}]}>SenseVoice</Text>
+                  <Text style={[styles.sttEngineLangs, {color: theme.colors.primary}]}>EN · JA · KO · ZH</Text>
+                </View>
               </View>
             </View>
           </View>

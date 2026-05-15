@@ -4,13 +4,6 @@ export const STT_REQUIRED_FILES = [
   'tokens.txt',
 ] as const;
 
-export const STT_WHISPER_MODEL_FOLDER = 'sherpa-onnx-whisper-small-int8';
-export const STT_WHISPER_REQUIRED_FILES = [
-  'small-encoder.int8.onnx',
-  'small-decoder.int8.onnx',
-  'small-tokens.txt',
-] as const;
-
 // Speaker diarization models bundled in app.
 // `model.onnx` is the segmentation model placeholder and
 // `3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx` is the embedding model.
@@ -21,7 +14,7 @@ export const DIARIZATION_REQUIRED_FILES = [
   '3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx',
 ] as const;
 
-export type BundledModelId = 'stt' | 'stt_whisper' | 'diarization';
+export type BundledModelId = 'stt' | 'diarization';
 
 export const BUNDLED_MODEL_CONFIG = {
   stt: {
@@ -29,12 +22,6 @@ export const BUNDLED_MODEL_CONFIG = {
     folder: STT_MODEL_FOLDER,
     requiredFiles: STT_REQUIRED_FILES,
     displayName: 'SenseVoice-Small',
-  },
-  stt_whisper: {
-    id: 'stt_whisper' as const,
-    folder: STT_WHISPER_MODEL_FOLDER,
-    requiredFiles: STT_WHISPER_REQUIRED_FILES,
-    displayName: 'Whisper-Small',
   },
   diarization: {
     id: 'diarization' as const,

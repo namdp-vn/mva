@@ -11,10 +11,9 @@ import type {RootStackParamList} from '../../../app/navigation/router';
 import {getSTTProcessorInstance} from '../../../native/stt/STTProcessor';
 import {warnLog} from '../../../shared/utils/logger';
 import {translationService} from '../../../services/TranslationService';
-import {ensureBundledModelInstalled, areInstalledModelFilesPresent, areBundledAssetsAvailable} from '../../../native/models/BundledModelInstaller';
+import {ensureBundledModelInstalled, areInstalledModelFilesPresent} from '../../../native/models/BundledModelInstaller';
 import getNativeAppleTranslator from '../../../native/NativeAppleTranslator';
 import {markPacksDownloaded, markPacksSkipped} from '../../../services/languagePackStatus';
-import {useSettingsStore} from '../../../shared/store/settingsStore';
 
 const MOCK_MODEL: ModelInfo = {
   id: 'sensevoice-small',
@@ -24,17 +23,6 @@ const MOCK_MODEL: ModelInfo = {
   diskFootprintMB: 234,
   languages: ['EN', 'JA', 'KO', 'ZH'],
   inferenceSpeedRTF: 0.05,
-  isOptimizedFor: ['iPhone 15 Pro'],
-};
-
-const WHISPER_MODEL: ModelInfo = {
-  id: 'whisper-small',
-  name: 'Whisper-Small',
-  version: 'int8-2024',
-  quality: 'int8',
-  diskFootprintMB: 244,
-  languages: ['EN', 'JA', 'KO', 'ZH', 'VI'],
-  inferenceSpeedRTF: 0.12,
   isOptimizedFor: ['iPhone 15 Pro'],
 };
 
@@ -135,10 +123,9 @@ export const SplashScreen: React.FC = () => {
   const prewarmState = usePrewarmState();
   const overallStatus = useBootstrapOverallStatus();
   const targetLanguage = useTargetLanguage();
-  const sttEngine = useSettingsStore((s) => s.sttEngine);
-  const activeSttModel = sttEngine === 'whisper' ? WHISPER_MODEL : MOCK_MODEL;
-  const activeSttModelId = sttEngine === 'whisper' ? 'stt_whisper' : 'stt';
-  const activeSttLabel = sttEngine === 'whisper' ? 'Whisper-Small • EN / JA / KO / ZH / VI' : 'SenseVoice • EN / JA / KO / ZH';
+  const activeSttModel = MOCK_MODEL;
+  const activeSttModelId = 'stt' as const;
+  const activeSttLabel = 'SenseVoice • EN / JA / KO / ZH';
   const {
     setModelDownloading,
     setModelDownloadProgress,
@@ -176,20 +163,8 @@ export const SplashScreen: React.FC = () => {
         initialize();
 
         // Step 1: Install STT model
-        // If selected engine's assets are missing from bundle (e.g. Whisper not bundled yet),
-        // fall back gracefully to SenseVoice so the app can still start.
-        let resolvedModelId = activeSttModelId;
-        let resolvedModel = activeSttModel;
-        if (resolvedModelId === 'stt_whisper') {
-          const whisperAssetsPresent = await areBundledAssetsAvailable('stt_whisper');
-          if (!whisperAssetsPresent) {
-            warnLog('[SplashScreen] Whisper assets not bundled, falling back to SenseVoice');
-            resolvedModelId = 'stt';
-            resolvedModel = MOCK_MODEL;
-            useSettingsStore.getState().setSttEngine('sense_voice');
-          }
-        }
-
+        const resolvedModelId = activeSttModelId;
+        const resolvedModel = activeSttModel;
         // Check if already installed to avoid flashing a progress bar that disappears instantly
         const sttAlreadyInstalled = await areInstalledModelFilesPresent(resolvedModelId);
         if (!sttAlreadyInstalled) {

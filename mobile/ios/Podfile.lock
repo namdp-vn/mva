@@ -1914,7 +1914,7 @@ PODS:
 DEPENDENCIES:
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - onnxruntime-objc (~> 1.17)
+  - onnxruntime-objc (= 1.24.3)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
   - RCTSwiftUI (from `../node_modules/react-native/ReactApple/RCTSwiftUI`)
@@ -2159,7 +2159,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   FBLazyVector: c00c20551d40126351a6783c47ce75f5b374851b
-  hermes-engine: f1c5f42dfa01ee0a45db2aade026e82efd384a5c
+  hermes-engine: 9ccad275f7d65ef6f1491f0cad430909a9eb062f
   onnxruntime-c: 4a1a1a81da2087869dc9b6357f182952db2df29c
   onnxruntime-objc: f9310465f0a284682811d071b7eb8e93f10517b8
   RCTDeprecation: 3bb167081b134461cfeb875ff7ae1945f8635257
@@ -2170,7 +2170,7 @@ SPEC CHECKSUMS:
   React: 1b1536b9099195944034e65b1830f463caaa8390
   React-callinvoker: 6dff6d17d1d6cc8fdf85468a649bafed473c65f5
   React-Core: 00faa4d038298089a1d5a5b21dde8660c4f0820d
-  React-Core-prebuilt: 51fc0dd831beb2e98a3e71741ea582e18c3840da
+  React-Core-prebuilt: 63850cbe44270b9e54fafaf52c86b1a2500258dc
   React-CoreModules: a17807f849bfd86045b0b9a75ec8c19373b482f6
   React-cxxreact: c7b53ace5827be54048288bce5c55f337c41e95f
   React-debug: e1f00fcd2cef58a2897471a6d76a4ef5f5f90c74
@@ -2232,13 +2232,13 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 5787b37b8e2e51dfeab697ec031cc7c4080dcea2
   ReactCodegen: d7a672507d4ed1c9cf9eeb17c0e1fbb773d972a0
   ReactCommon: fe2a3af8975e63efa60f95fca8c34dc85deee360
-  ReactNativeDependencies: c6558e82d94ab33936ee66184715249879c81920
+  ReactNativeDependencies: 199ce8ea6ca1f7be45f6df11e524d48195871240
   ReactNativeFs: 21026144ac71a65acf6855c52b1a8eb31012bb5d
   RNCAsyncStorage: 2ad919e88b8bc2cd80e8697ce66d04d006743283
   RNCClipboard: 715fa7c6c8366f17d00f05a439ee7488f390fa5f
-  SherpaOnnx: 6dc38c593845ae867631649433f53edbcb1eabca
-  Yoga: e83c3121d079541e69f3c5c623faaaf933fb5812
+  SherpaOnnx: 86def7cf46ec3536bc9ecfe9df7c0d0e7888679f
+  Yoga: cc155241ea30670878e270d52d74cf29487c4bbb
 
-PODFILE CHECKSUM: 9b06bb450ecbfab52ac03a85363a91598ae19dad
+PODFILE CHECKSUM: 27d839ff36a431c74e066bf6435dd911f3a4309a
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.15.2

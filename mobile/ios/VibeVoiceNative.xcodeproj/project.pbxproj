@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		338292F88A58C0413C36C108 /* libPods-VibeVoiceNative.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2870802CB1D67F9BEF522CAF /* libPods-VibeVoiceNative.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		76D7A0012DBB9001006654EE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D7A0002DBB9001006654EE /* SceneDelegate.swift */; };
 		76F100012DC00001006654EE /* SpeakerEmbeddingModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76F100002DC00001006654EE /* SpeakerEmbeddingModule.swift */; };
@@ -20,16 +19,17 @@
 		A1B2C3D11A68108700A75B9A /* AppleTranslatorModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31A68108700A75B9A /* AppleTranslatorModule.m */; };
 		A1B2C3D81A68108700A75B9A /* AudioSessionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3DA1A68108700A75B9A /* AudioSessionModule.swift */; };
 		A1B2C3D91A68108700A75B9A /* AudioSessionModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3DB1A68108700A75B9A /* AudioSessionModule.m */; };
+		C2F25943E3FD86D907200F26 /* libPods-VibeVoiceNative.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6672930B79FFB844E82C116B /* libPods-VibeVoiceNative.a */; };
 		D11E32137247258732D4CB5A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0C38AED00B66C6C10CEA0CC0 /* Pods-VibeVoiceNative.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VibeVoiceNative.release.xcconfig"; path = "Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* VibeVoiceNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VibeVoiceNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = VibeVoiceNative/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = VibeVoiceNative/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = VibeVoiceNative/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		2870802CB1D67F9BEF522CAF /* libPods-VibeVoiceNative.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VibeVoiceNative.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5649743AB6276943532F26BE /* Pods-VibeVoiceNative.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VibeVoiceNative.release.xcconfig"; path = "Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative.release.xcconfig"; sourceTree = "<group>"; };
+		6672930B79FFB844E82C116B /* libPods-VibeVoiceNative.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VibeVoiceNative.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = VibeVoiceNative/AppDelegate.swift; sourceTree = "<group>"; };
 		76D7A0002DBB9001006654EE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = VibeVoiceNative/SceneDelegate.swift; sourceTree = "<group>"; };
 		76F100002DC00001006654EE /* SpeakerEmbeddingModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibeVoiceNative/SpeakerEmbeddingModule.swift; sourceTree = "<group>"; };
@@ -41,7 +41,7 @@
 		A1B2C3D31A68108700A75B9A /* AppleTranslatorModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppleTranslatorModule.m; sourceTree = "<group>"; };
 		A1B2C3DA1A68108700A75B9A /* AudioSessionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionModule.swift; sourceTree = "<group>"; };
 		A1B2C3DB1A68108700A75B9A /* AudioSessionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AudioSessionModule.m; sourceTree = "<group>"; };
-		D50FA0E1583E5185294051C2 /* Pods-VibeVoiceNative.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VibeVoiceNative.debug.xcconfig"; path = "Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative.debug.xcconfig"; sourceTree = "<group>"; };
+		CF9CA4B0C26C8EE8919A3801 /* Pods-VibeVoiceNative.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VibeVoiceNative.debug.xcconfig"; path = "Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -50,7 +50,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				338292F88A58C0413C36C108 /* libPods-VibeVoiceNative.a in Frameworks */,
+				C2F25943E3FD86D907200F26 /* libPods-VibeVoiceNative.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,7 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				2870802CB1D67F9BEF522CAF /* libPods-VibeVoiceNative.a */,
+				6672930B79FFB844E82C116B /* libPods-VibeVoiceNative.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -119,8 +119,8 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				D50FA0E1583E5185294051C2 /* Pods-VibeVoiceNative.debug.xcconfig */,
-				0C38AED00B66C6C10CEA0CC0 /* Pods-VibeVoiceNative.release.xcconfig */,
+				CF9CA4B0C26C8EE8919A3801 /* Pods-VibeVoiceNative.debug.xcconfig */,
+				5649743AB6276943532F26BE /* Pods-VibeVoiceNative.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -132,13 +132,13 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "VibeVoiceNative" */;
 			buildPhases = (
-				3F4D81082DBB6A115FCC3B11 /* [CP] Check Pods Manifest.lock */,
+				2FBF1B5B8CD571DE67218DA1 /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				EF28AF19A5617FF716E5CF17 /* [CP] Embed Pods Frameworks */,
-				0EC18CED221E009EF591B56F /* [CP] Copy Pods Resources */,
+				92FC1212B15233643C93902C /* [CP] Embed Pods Frameworks */,
+				236851B94FFED2B8157E7F3A /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -208,9 +208,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  /usr/bin/env node \"$SRCROOT/../scripts/sync-metro-host.js\"\nfi\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\nif [ \"$CONFIGURATION\" = \"Debug\" ] && [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  export FORCE_BUNDLING=1\nfi\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n\nMODEL_DST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/models\"\n/usr/bin/env node \"$SRCROOT/../scripts/copy-required-model-assets.js\" \"$MODEL_DST\"\n";
+			shellScript = "set -e\n\n# Nạp env sớm cho toàn bộ script phase\n[ -f \"$SRCROOT/.xcode.env\" ] && . \"$SRCROOT/.xcode.env\"\n[ -f \"$SRCROOT/.xcode.env.local\" ] && . \"$SRCROOT/.xcode.env.local\"\n\n# Fallback cứng nếu chưa có\nexport NODE_BINARY=\"${NODE_BINARY:-/opt/homebrew/bin/node}\"\n\necho \"NODE_BINARY=$NODE_BINARY\"\n[ -x \"$NODE_BINARY\" ] || { echo \"Node not executable at $NODE_BINARY\"; exit 1; }\n\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then\n  \"$NODE_BINARY\" \"$SRCROOT/../scripts/sync-metro-host.js\"\nfi\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\nif [ \"$CONFIGURATION\" = \"Debug\" ] && [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  export FORCE_BUNDLING=1\nfi\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n\nMODEL_DST=\"$CONFIGURATION_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/models\"\n\"$NODE_BINARY\" \"$SRCROOT/../scripts/copy-required-model-assets.js\" \"$MODEL_DST\"\n\n";
 		};
-		0EC18CED221E009EF591B56F /* [CP] Copy Pods Resources */ = {
+		236851B94FFED2B8157E7F3A /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -227,7 +227,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		3F4D81082DBB6A115FCC3B11 /* [CP] Check Pods Manifest.lock */ = {
+		2FBF1B5B8CD571DE67218DA1 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -249,7 +249,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		EF28AF19A5617FF716E5CF17 /* [CP] Embed Pods Frameworks */ = {
+		92FC1212B15233643C93902C /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -291,11 +291,12 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = D50FA0E1583E5185294051C2 /* Pods-VibeVoiceNative.debug.xcconfig */;
+			baseConfigurationReference = CF9CA4B0C26C8EE8919A3801 /* Pods-VibeVoiceNative.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9AK576J4RE;
 				GENERATE_INFOPLIST_FILE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -307,14 +308,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.vnteki.mva;
+				PRODUCT_BUNDLE_IDENTIFIER = vnpt.com.vnteki.mva;
 				PRODUCT_NAME = VibeVoiceNative;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OBJC_BRIDGING_HEADER = "VibeVoiceNative/VibeVoiceNative-Bridging-Header.h";
@@ -327,13 +327,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0C38AED00B66C6C10CEA0CC0 /* Pods-VibeVoiceNative.release.xcconfig */;
+			baseConfigurationReference = 5649743AB6276943532F26BE /* Pods-VibeVoiceNative.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = L9FM8ZUG5H;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9AK576J4RE;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(SRCROOT)/../node_modules/react-native-sherpa-onnx/ios/Frameworks/sherpa_onnx.xcframework/ios-arm64/Headers",
@@ -345,14 +345,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.vnteki.mva;
+				PRODUCT_BUNDLE_IDENTIFIER = vnpt.com.vnteki.mva;
 				PRODUCT_NAME = VibeVoiceNative;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OBJC_BRIDGING_HEADER = "VibeVoiceNative/VibeVoiceNative-Bridging-Header.h";
