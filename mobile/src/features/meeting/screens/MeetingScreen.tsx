@@ -353,37 +353,6 @@ export function MeetingScreen(): React.JSX.Element {
         />
       </View>
 
-      {/* Language Pack Flags (iOS only) */}
-      {Platform.OS === 'ios' && (
-        <View style={[styles.langPackStrip, {borderBottomColor: theme.colors.border.subtle}]}>
-          {LANG_PACKS_UI.map(({srcLang, flag, label}) => {
-            const status = packStatuses[srcLang];
-            const installed = status === 'installed';
-            const fetching = status === 'loading';
-            // Only allow tapping when status is confirmed 'available' by the API.
-            // All other states (loading, installed, unknown, unsupported) are non-tappable.
-            const canDownload = status === 'available';
-            return (
-              <TouchableOpacity
-                key={srcLang}
-                style={styles.flagBtn}
-                onPress={() => handleFlagPress(srcLang)}
-                disabled={!canDownload}
-                activeOpacity={0.7}>
-                {fetching ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} style={styles.flagSpinner} />
-                ) : (
-                  <>
-                    <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
-                    <Text style={[styles.flagLabel, {color: installed ? theme.colors.text.primary : theme.colors.text.tertiary}]}>{label}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
       {/* Language Pack Status Strip (iOS only) — display only, download via Settings */}
       {Platform.OS === 'ios' && (
         <View style={[styles.langPackStrip, {borderBottomColor: theme.colors.border.subtle}]}>
