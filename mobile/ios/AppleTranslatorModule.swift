@@ -29,7 +29,7 @@ private struct LanguageDownloadTrigger: View {
                         return
                     }
                     let availability = LanguageAvailability()
-                    for _ in 0..<10 { // 10 × 3 s = 30 s max
+                    for _ in 0..<20 { // 20 × 3 s = 60 s max
                         guard !Task.isCancelled else { return }
                         try? await Task.sleep(nanoseconds: 3_000_000_000)
                         guard !Task.isCancelled else { return }
@@ -379,11 +379,11 @@ class AppleTranslatorModule: NSObject {
         hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
 
-        // 150-second hard timeout — covers 120s for prepareTranslation() plus
-        // 30s for the background-download polling loop in LanguageDownloadTrigger.
+        // 190-second hard timeout — covers 120s for prepareTranslation() plus
+        // 60s for the background-download polling loop in LanguageDownloadTrigger.
         // If nothing resolves by then, remove the VC and fail gracefully.
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 150_000_000_000)
+            try? await Task.sleep(nanoseconds: 190_000_000_000)
             finish(false)
         }
     }
