@@ -94,16 +94,13 @@ export function MeetingScreen(): React.JSX.Element {
   const [latencyMs] = useState<number | null>(45);
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
 
-  // Language pack flags (iOS only)
+  // Language pack status display (iOS only) — read-only, no download from here
   type PackRowStatus = LanguagePackStatus | 'loading';
-  // Start all as 'loading' so flags are disabled until the initial status fetch completes.
-  // This prevents tapping a flag that looks "not installed" but is actually already installed.
   const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>(() =>
     Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'loading' as PackRowStatus])),
   );
   const mountedRef = useRef(true);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
   useEffect(() => {
     if (Platform.OS !== 'ios') { return; }
     const nativeModule = getNativeAppleTranslator();
@@ -123,38 +120,6 @@ export function MeetingScreen(): React.JSX.Element {
       setPackStatuses(map);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetLanguage]);
-
-  const handleFlagPress = useCallback(async (srcLang: string) => {
-    const nativeModule = getNativeAppleTranslator();
-    if (!nativeModule) { return; }
-    console.warn('[LangPack] handleFlagPress:', srcLang, '→', targetLanguage);
-    setPackStatuses(prev => ({...prev, [srcLang]: 'loading'}));
-    // Show Apple download sheet — blocks until sheet is dismissed
-    const dlResult = await nativeModule.downloadLanguageIfNeeded(srcLang, targetLanguage).catch((e: unknown) => {
-      console.warn('[LangPack] downloadLanguageIfNeeded error:', e);
-      return false;
-    });
-    console.warn('[LangPack] downloadLanguageIfNeeded returned:', dlResult, 'for', srcLang);
-    // Check actual status after sheet closes (source of truth)
-    const checkAndSet = async (): Promise<LanguagePackStatus> => {
-      const s = await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const);
-      console.warn('[LangPack] getLanguagePackStatus:', srcLang, '→', s);
-      if (mountedRef.current) { setPackStatuses(prev => ({...prev, [srcLang]: s})); }
-      return s;
-    };
-    const immediateStatus = await checkAndSet();
-    if (immediateStatus === 'installed') { return; }
-    // Background poll — if user pressed Download then closed sheet, iOS continues
-    // downloading in background; poll every 3s up to 3 min to detect completion.
-    (async () => {
-      for (let i = 0; i < 60; i++) {
-        await new Promise<void>(r => setTimeout(r, 3000));
-        if (!mountedRef.current) { return; }
-        const s = await checkAndSet();
-        if (s === 'installed') { return; }
-      }
-    })();
   }, [targetLanguage]);
 
   useEffect(() => {
@@ -389,6 +354,29 @@ export function MeetingScreen(): React.JSX.Element {
                   </>
                 )}
               </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Language Pack Status Strip (iOS only) — display only, download via Settings */}
+      {Platform.OS === 'ios' && (
+        <View style={[styles.langPackStrip, {borderBottomColor: theme.colors.border.subtle}]}>
+          {LANG_PACKS_UI.map(({srcLang, flag, label}) => {
+            const status = packStatuses[srcLang];
+            const installed = status === 'installed';
+            const fetching = status === 'loading';
+            return (
+              <View key={srcLang} style={styles.flagBtn}>
+                {fetching ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} style={styles.flagSpinner} />
+                ) : (
+                  <>
+                    <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
+                    <Text style={[styles.flagLabel, {color: installed ? theme.colors.text.primary : theme.colors.text.tertiary}]}>{label}</Text>
+                  </>
+                )}
+              </View>
             );
           })}
         </View>
