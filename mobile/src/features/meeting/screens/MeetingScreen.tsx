@@ -108,17 +108,42 @@ export function MeetingScreen(): React.JSX.Element {
       setPackStatuses(Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'unsupported' as PackRowStatus])));
       return;
     }
-    Promise.all(
-      LANG_PACKS_UI.map(async ({srcLang}) => ({
-        srcLang,
-        status: await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const),
-      })),
-    ).then(results => {
-      if (!mountedRef.current) { return; }
+
+    const fetchAll = async (): Promise<Record<string, PackRowStatus>> => {
+      const results = await Promise.all(
+        LANG_PACKS_UI.map(async ({srcLang}) => ({
+          srcLang,
+          status: await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const),
+        })),
+      );
       const map: Record<string, PackRowStatus> = {};
       results.forEach(r => { map[r.srcLang] = r.status; });
-      setPackStatuses(map);
-    });
+      return map;
+    };
+
+    const run = async () => {
+      // Initial fetch
+      const initial = await fetchAll();
+      if (!mountedRef.current) { return; }
+      setPackStatuses(initial);
+
+      // If any pack is 'available', poll every 10s (max 5 min = 30 polls)
+      // to catch background downloads that complete while on this screen.
+      const hasAvailable = Object.values(initial).some(s => s === 'available');
+      if (!hasAvailable) { return; }
+
+      for (let i = 0; i < 30; i++) {
+        await new Promise<void>(r => setTimeout(r, 10_000));
+        if (!mountedRef.current) { return; }
+        const updated = await fetchAll();
+        if (!mountedRef.current) { return; }
+        setPackStatuses(updated);
+        const stillAvailable = Object.values(updated).some(s => s === 'available');
+        if (!stillAvailable) { return; }
+      }
+    };
+
+    run();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetLanguage]);
 
