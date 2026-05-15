@@ -243,7 +243,8 @@ export const SplashScreen: React.FC = () => {
                 // before the download finishes. Only moves to the next pack once the
                 // current pack is confirmed installed (or the JS safety timeout fires).
                 //
-                // 185s JS timeout — 5s headroom over Swift's 180s hard timeout.
+                // 185s JS fallback — dismissal monitor on Swift side fires in ~300 ms,
+                // so this timeout only triggers if the monitor fails entirely.
                 const PACK_DOWNLOAD_TIMEOUT_MS = 185_000;
                 setLangPackStep('downloading');
 

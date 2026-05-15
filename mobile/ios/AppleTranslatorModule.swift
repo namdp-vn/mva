@@ -363,9 +363,28 @@ class AppleTranslatorModule: NSObject {
         hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
 
-        // 180-second hard timeout — generous for slow connections where
-        // prepareTranslation() waits for a large pack to fully download.
-        // If nothing resolves by then, remove the VC and fail gracefully.
+        // Dismissal monitor: poll every 300 ms to detect when the Apple download
+        // sheet disappears. This fires finish(false) quickly so JS can re-show the
+        // popup — prepareTranslation() does NOT throw when the user taps "Done"
+        // without pressing Download; it just keeps waiting indefinitely.
+        Task { @MainActor [weak topVC] in
+            var sheetWasVisible = false
+            while !state.didResolve {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard !state.didResolve, let topVC else { break }
+                let isSheetPresented = (topVC.presentedViewController != nil)
+                    || (state.vc?.presentedViewController != nil)
+                if isSheetPresented {
+                    sheetWasVisible = true
+                } else if sheetWasVisible {
+                    // Sheet was visible then disappeared → user dismissed the popup
+                    finish(false)
+                    break
+                }
+            }
+        }
+
+        // Hard timeout fallback for very slow downloads (180 s).
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 180_000_000_000)
             finish(false)
