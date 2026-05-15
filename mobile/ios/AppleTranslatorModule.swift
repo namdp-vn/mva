@@ -280,8 +280,10 @@ class AppleTranslatorModule: NSObject {
                     return
                 }
                 holder.didResolve = true
+                holder.vc?.beginAppearanceTransition(false, animated: false)
                 holder.vc?.willMove(toParent: nil)
                 holder.vc?.view.removeFromSuperview()
+                holder.vc?.endAppearanceTransition()
                 holder.vc?.removeFromParent()
                 holder.vc = nil
 
@@ -305,7 +307,9 @@ class AppleTranslatorModule: NSObject {
         hostingVC.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
 
         topVC.addChild(hostingVC)
+        hostingVC.beginAppearanceTransition(true, animated: false)
         topVC.view.addSubview(hostingVC.view)
+        hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
     }
 
@@ -317,27 +321,51 @@ class AppleTranslatorModule: NSObject {
             return
         }
 
-        // Use a reference holder so the closure can remove the VC after completion
-        final class HolderRef { var vc: UIHostingController<AnyView>? }
-        let holder = HolderRef()
+        final class State {
+            var vc: UIHostingController<AnyView>?
+            var didResolve = false
+        }
+        let state = State()
 
-        let trigger = LanguageDownloadTrigger(configuration: config) { success in
-            holder.vc?.willMove(toParent: nil)
-            holder.vc?.view.removeFromSuperview()
-            holder.vc?.removeFromParent()
-            holder.vc = nil
+        // finish() is always called on @MainActor; the didResolve guard prevents double-resolve.
+        func finish(_ success: Bool) {
+            guard !state.didResolve else { return }
+            state.didResolve = true
+            // Manually signal disappearance so SwiftUI cancels the translationTask.
+            state.vc?.beginAppearanceTransition(false, animated: false)
+            state.vc?.willMove(toParent: nil)
+            state.vc?.view.removeFromSuperview()
+            state.vc?.endAppearanceTransition()
+            state.vc?.removeFromParent()
+            state.vc = nil
             resolve(success as Any?)
         }
 
+        let trigger = LanguageDownloadTrigger(configuration: config) { success in
+            Task { @MainActor in finish(success) }
+        }
+
         let hostingVC = UIHostingController(rootView: AnyView(trigger))
-        holder.vc = hostingVC
+        state.vc = hostingVC
         hostingVC.view.backgroundColor = UIColor.clear
         hostingVC.view.alpha = 0.0
         hostingVC.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
 
+        // addChild after topVC is already visible requires explicit appearance
+        // transitions — without them UIKit never calls viewWillAppear/viewDidAppear
+        // on the child, so SwiftUI's onAppear (and thus translationTask) never fires.
         topVC.addChild(hostingVC)
+        hostingVC.beginAppearanceTransition(true, animated: false)
         topVC.view.addSubview(hostingVC.view)
+        hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
+
+        // 120-second hard timeout — if prepareTranslation() never completes
+        // (e.g. network hang, Apple dialog not shown), resolve false and remove the VC.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000_000)
+            finish(false)
+        }
     }
 
     @MainActor

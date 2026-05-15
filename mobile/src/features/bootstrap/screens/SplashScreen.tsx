@@ -239,13 +239,19 @@ export const SplashScreen: React.FC = () => {
                 }
 
                 // --- Download phase ---
+                // 130s JS-side timeout — Swift has its own 120s timeout; this is
+                // a safety net in case the native bridge itself stalls.
+                const PACK_DOWNLOAD_TIMEOUT_MS = 130_000;
                 setLangPackStep('downloading');
                 for (let i = 0; i < pendingPacks.length; i++) {
                   const pack = pendingPacks[i];
                   setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
                   if (nativeModule) {
                     try {
-                      await nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage);
+                      await Promise.race([
+                        nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage),
+                        new Promise<void>(r => setTimeout(r, PACK_DOWNLOAD_TIMEOUT_MS)),
+                      ]);
                     } catch {
                       warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
                     }
@@ -253,6 +259,9 @@ export const SplashScreen: React.FC = () => {
                 }
 
                 // --- Verify phase: check actual installed status for all 4 packs ---
+                // Brief pause — Apple's LanguageAvailability.status() can lag behind
+                // the actual download completion by up to ~1s.
+                await delay(1500);
                 setDlProgress({index: pendingPacks.length, total: pendingPacks.length, packName: 'Đang kiểm tra...', isVerifying: true});
                 const nowFailed: string[] = [];
                 for (const pack of allPacks) {
