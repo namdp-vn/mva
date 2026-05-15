@@ -365,10 +365,7 @@ export function MeetingScreen(): React.JSX.Element {
                 {fetching ? (
                   <ActivityIndicator size="small" color={theme.colors.primary} style={styles.flagSpinner} />
                 ) : (
-                  <>
-                    <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
-                    <Text style={[styles.flagLabel, {color: installed ? theme.colors.text.primary : theme.colors.text.tertiary}]}>{label}</Text>
-                  </>
+                  <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
                 )}
               </View>
             );

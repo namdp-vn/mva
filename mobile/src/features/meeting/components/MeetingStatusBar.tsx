@@ -26,6 +26,16 @@ function formatTime(startedAt: number | null): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+function getLanguageFlag(language: string): string {
+  switch (language.toLowerCase()) {
+    case 'en': return '🇬🇧';
+    case 'ja': return '🇯🇵';
+    case 'ko': return '🇰🇷';
+    case 'zh': return '🇨🇳';
+    default:   return '🌐';
+  }
+}
+
 // Language badge colors: AUTO neutral, EN blue, JA red, KO green, ZH amber
 function getLanguageBadgeStyle(
   language: string,
@@ -128,8 +138,8 @@ function LanguageBadge({language}: LanguageBadgeProps): React.JSX.Element {
 
   return (
     <View style={[styles.languageBadge, {backgroundColor: badgeStyle.backgroundColor}]}>
-      <Text style={[styles.languageText, {color: badgeStyle.textColor}]}>
-        {language.toUpperCase()}
+      <Text style={styles.languageFlag}>
+        {getLanguageFlag(language)}
       </Text>
     </View>
   );
@@ -357,15 +367,14 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   languageBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
     borderRadius: 7,
     flexShrink: 0,
   },
-  languageText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+  languageFlag: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   pipelineText: {
     fontSize: 9,

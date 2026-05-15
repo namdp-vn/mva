@@ -73,12 +73,22 @@ function JumpToLatestPill({
 // LanguageBadge
 // =============================================================================
 
+function getLanguageFlag(language: string): string {
+  switch (language.toLowerCase()) {
+    case 'en': return '🇬🇧';
+    case 'ja': return '🇯🇵';
+    case 'ko': return '🇰🇷';
+    case 'zh': return '🇨🇳';
+    default:   return '🌐';
+  }
+}
+
 function LanguageBadge({language}: {language: string | null}) {
   const {theme} = useTheme();
   if (!language) return null;
   return (
     <View style={[styles.languageBadge, {backgroundColor: theme.colors.primary}]}>
-      <Text style={[styles.languageText, {color: theme.colors.text.primary}]}>{language.toUpperCase()}</Text>
+      <Text style={styles.languageFlag}>{getLanguageFlag(language)}</Text>
     </View>
   );
 }
@@ -449,14 +459,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   languageBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
     borderRadius: 4,
   },
-  languageText: {
-    fontSize: 8,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+  languageFlag: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   timestamp: {
     fontSize: 9,
