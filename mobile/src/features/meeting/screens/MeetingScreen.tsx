@@ -12,7 +12,7 @@
  * @see docs/implementation-artifacts/4-6-deliver-accessibility-and-dark-mode-for-meeting-screen.md
  */
 
-import React, {useCallback, useState, useEffect} from 'react';
+import React, {useCallback, useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   SafeAreaView,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -36,11 +37,19 @@ import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
 import {requestAudioPermission} from '../../../shared/utils/permissions';
 import {arePacksDownloaded} from '../../../services/languagePackStatus';
+import getNativeAppleTranslator, {LanguagePackStatus} from '../../../native/NativeAppleTranslator';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
 type MeetingNavigationProp = StackNavigationProp<RootStackParamList, 'Meeting'>;
 type LaneFocusMode = 'original' | 'split' | 'translation';
+
+const LANG_PACKS_UI = [
+  {srcLang: 'en', flag: '🇬🇧', label: 'EN'},
+  {srcLang: 'ja', flag: '🇯🇵', label: 'JA'},
+  {srcLang: 'ko', flag: '🇰🇷', label: 'KO'},
+  {srcLang: 'zh', flag: '🇨🇳', label: 'ZH'},
+] as const;
 
 const APP_NAME = 'Executive MVA';
 
@@ -84,6 +93,56 @@ export function MeetingScreen(): React.JSX.Element {
 
   const [latencyMs] = useState<number | null>(45);
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
+
+  // Language pack flags (iOS only)
+  type PackRowStatus = LanguagePackStatus | 'loading';
+  const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>({});
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') { return; }
+    const nativeModule = getNativeAppleTranslator();
+    if (!nativeModule) { return; }
+    Promise.all(
+      LANG_PACKS_UI.map(async ({srcLang}) => ({
+        srcLang,
+        status: await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const),
+      })),
+    ).then(results => {
+      if (!mountedRef.current) { return; }
+      const map: Record<string, PackRowStatus> = {};
+      results.forEach(r => { map[r.srcLang] = r.status; });
+      setPackStatuses(map);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLanguage]);
+
+  const handleFlagPress = useCallback(async (srcLang: string) => {
+    const nativeModule = getNativeAppleTranslator();
+    if (!nativeModule) { return; }
+    setPackStatuses(prev => ({...prev, [srcLang]: 'loading'}));
+    // Show Apple download sheet — returns when sheet is dismissed
+    await nativeModule.downloadLanguageIfNeeded(srcLang, targetLanguage).catch(() => {});
+    // Check status immediately after sheet closes
+    const checkAndSet = async (): Promise<LanguagePackStatus> => {
+      const s = await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const);
+      if (mountedRef.current) { setPackStatuses(prev => ({...prev, [srcLang]: s})); }
+      return s;
+    };
+    const immediateStatus = await checkAndSet();
+    if (immediateStatus === 'installed') { return; }
+    // Background poll — user may have pressed Download then closed sheet;
+    // iOS continues downloading silently; poll every 3s up to 3 min
+    (async () => {
+      for (let i = 0; i < 60; i++) {
+        await new Promise<void>(r => setTimeout(r, 3000));
+        if (!mountedRef.current) { return; }
+        const s = await checkAndSet();
+        if (s === 'installed') { return; }
+      }
+    })();
+  }, [targetLanguage]);
 
   useEffect(() => {
     const modelsReady = modelState.status === 'cached-ready';
@@ -291,6 +350,34 @@ export function MeetingScreen(): React.JSX.Element {
         />
       </View>
 
+      {/* Language Pack Flags (iOS only) */}
+      {Platform.OS === 'ios' && (
+        <View style={[styles.langPackStrip, {borderBottomColor: theme.colors.border.subtle}]}>
+          {LANG_PACKS_UI.map(({srcLang, flag, label}) => {
+            const status = packStatuses[srcLang];
+            const installed = status === 'installed';
+            const loading = status === 'loading';
+            return (
+              <TouchableOpacity
+                key={srcLang}
+                style={[styles.flagBtn, installed && styles.flagBtnInstalled]}
+                onPress={() => handleFlagPress(srcLang)}
+                disabled={installed || loading}
+                activeOpacity={0.7}>
+                {loading ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <>
+                    <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
+                    <Text style={[styles.flagLabel, {color: installed ? theme.colors.text.primary : theme.colors.text.tertiary}]}>{label}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
       {/* Two-Lane Content - Each lane independently scrollable */}
       <View
         style={[styles.lanesContainer, {backgroundColor: theme.colors.surface.primary}]}
@@ -452,6 +539,36 @@ const styles = StyleSheet.create({
   statusBarContainer: {
     paddingHorizontal: 16,
     paddingTop: 6,
+  },
+  langPackStrip: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  flagBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 52,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 1,
+  },
+  flagBtnInstalled: {
+    // no extra style needed — opacity handled inline
+  },
+  flagEmoji: {
+    fontSize: 22,
+  },
+  flagDisabled: {
+    opacity: 0.35,
+  },
+  flagLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   lanesContainer: {
     flex: 1,
