@@ -241,7 +241,8 @@ export const SplashScreen: React.FC = () => {
                 // --- Download phase ---
                 // 130s JS-side timeout — Swift has its own 120s timeout; this is
                 // a safety net in case the native bridge itself stalls.
-                const PACK_DOWNLOAD_TIMEOUT_MS = 130_000;
+                // 160s = 120s Swift hard timeout + 30s background polling + 10s buffer
+                const PACK_DOWNLOAD_TIMEOUT_MS = 160_000;
                 setLangPackStep('downloading');
                 for (let i = 0; i < pendingPacks.length; i++) {
                   const pack = pendingPacks[i];

@@ -20,6 +20,25 @@ private struct LanguageDownloadTrigger: View {
                     try await session.prepareTranslation()
                     onComplete(true)
                 } catch {
+                    // Sheet was dismissed before prepareTranslation() finished.
+                    // The user may have tapped "Done" after confirming the download,
+                    // in which case iOS continues downloading in the background.
+                    // Poll LanguageAvailability.status() to detect silent completion.
+                    guard let src = configuration.source, let tgt = configuration.target else {
+                        onComplete(false)
+                        return
+                    }
+                    let availability = LanguageAvailability()
+                    for _ in 0..<10 { // 10 × 3 s = 30 s max
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        guard !Task.isCancelled else { return }
+                        let status = await availability.status(from: src, to: tgt)
+                        if status == .installed {
+                            onComplete(true)
+                            return
+                        }
+                    }
                     onComplete(false)
                 }
             }
@@ -360,10 +379,11 @@ class AppleTranslatorModule: NSObject {
         hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
 
-        // 120-second hard timeout — if prepareTranslation() never completes
-        // (e.g. network hang, Apple dialog not shown), resolve false and remove the VC.
+        // 150-second hard timeout — covers 120s for prepareTranslation() plus
+        // 30s for the background-download polling loop in LanguageDownloadTrigger.
+        // If nothing resolves by then, remove the VC and fail gracefully.
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 120_000_000_000)
+            try? await Task.sleep(nanoseconds: 150_000_000_000)
             finish(false)
         }
     }
