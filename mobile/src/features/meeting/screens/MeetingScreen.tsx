@@ -96,14 +96,21 @@ export function MeetingScreen(): React.JSX.Element {
 
   // Language pack flags (iOS only)
   type PackRowStatus = LanguagePackStatus | 'loading';
-  const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>({});
+  // Start all as 'loading' so flags are disabled until the initial status fetch completes.
+  // This prevents tapping a flag that looks "not installed" but is actually already installed.
+  const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>(() =>
+    Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'loading' as PackRowStatus])),
+  );
   const mountedRef = useRef(true);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'ios') { return; }
     const nativeModule = getNativeAppleTranslator();
-    if (!nativeModule) { return; }
+    if (!nativeModule) {
+      setPackStatuses(Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'unsupported' as PackRowStatus])));
+      return;
+    }
     Promise.all(
       LANG_PACKS_UI.map(async ({srcLang}) => ({
         srcLang,
@@ -121,19 +128,25 @@ export function MeetingScreen(): React.JSX.Element {
   const handleFlagPress = useCallback(async (srcLang: string) => {
     const nativeModule = getNativeAppleTranslator();
     if (!nativeModule) { return; }
+    console.warn('[LangPack] handleFlagPress:', srcLang, '→', targetLanguage);
     setPackStatuses(prev => ({...prev, [srcLang]: 'loading'}));
-    // Show Apple download sheet — returns when sheet is dismissed
-    await nativeModule.downloadLanguageIfNeeded(srcLang, targetLanguage).catch(() => {});
-    // Check status immediately after sheet closes
+    // Show Apple download sheet — blocks until sheet is dismissed
+    const dlResult = await nativeModule.downloadLanguageIfNeeded(srcLang, targetLanguage).catch((e: unknown) => {
+      console.warn('[LangPack] downloadLanguageIfNeeded error:', e);
+      return false;
+    });
+    console.warn('[LangPack] downloadLanguageIfNeeded returned:', dlResult, 'for', srcLang);
+    // Check actual status after sheet closes (source of truth)
     const checkAndSet = async (): Promise<LanguagePackStatus> => {
       const s = await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const);
+      console.warn('[LangPack] getLanguagePackStatus:', srcLang, '→', s);
       if (mountedRef.current) { setPackStatuses(prev => ({...prev, [srcLang]: s})); }
       return s;
     };
     const immediateStatus = await checkAndSet();
     if (immediateStatus === 'installed') { return; }
-    // Background poll — user may have pressed Download then closed sheet;
-    // iOS continues downloading silently; poll every 3s up to 3 min
+    // Background poll — if user pressed Download then closed sheet, iOS continues
+    // downloading in background; poll every 3s up to 3 min to detect completion.
     (async () => {
       for (let i = 0; i < 60; i++) {
         await new Promise<void>(r => setTimeout(r, 3000));
@@ -356,16 +369,19 @@ export function MeetingScreen(): React.JSX.Element {
           {LANG_PACKS_UI.map(({srcLang, flag, label}) => {
             const status = packStatuses[srcLang];
             const installed = status === 'installed';
-            const loading = status === 'loading';
+            const fetching = status === 'loading';
+            // Only allow tapping when status is confirmed 'available' by the API.
+            // All other states (loading, installed, unknown, unsupported) are non-tappable.
+            const canDownload = status === 'available';
             return (
               <TouchableOpacity
                 key={srcLang}
-                style={[styles.flagBtn, installed && styles.flagBtnInstalled]}
+                style={styles.flagBtn}
                 onPress={() => handleFlagPress(srcLang)}
-                disabled={installed || loading}
+                disabled={!canDownload}
                 activeOpacity={0.7}>
-                {loading ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                {fetching ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} style={styles.flagSpinner} />
                 ) : (
                   <>
                     <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
@@ -556,8 +572,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 1,
   },
-  flagBtnInstalled: {
-    // no extra style needed — opacity handled inline
+  flagSpinner: {
+    height: 22,
   },
   flagEmoji: {
     fontSize: 22,

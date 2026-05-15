@@ -218,9 +218,9 @@ export const SplashScreen: React.FC = () => {
             const allPacks = getLanguagePacksToCheck(targetLanguage);
             const missingObjs = allPacks.filter(p => missing.includes(p.displayName));
 
-            // Show language selection UI
+            // Show language selection UI — no packs selected by default
             setMissingPackObjs(missingObjs);
-            const initSelected = new Set(missingObjs.map(p => p.srcLang));
+            const initSelected = new Set<string>();
             selectedSrcLangsRef.current = initSelected;
             setSelectedSrcLangs(initSelected);
             setLangPackStep('needs-download');
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
   langPackTitle: {fontFamily: typography.fontFamily.headline, fontSize: typography.fontSize.xl, fontWeight: '700'},
   langPackBody: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, lineHeight: 22},
   langPackList: {gap: spacing.sm},
-  langPackItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
+  langPackItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xs},
   langPackItemDot: {fontSize: 8},
   langPackItemText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, flex: 1},
   checkbox: {width: 20, height: 20, borderRadius: 4, borderWidth: 2, alignItems: 'center', justifyContent: 'center'},
