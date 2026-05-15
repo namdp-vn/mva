@@ -93,6 +93,7 @@ export function MeetingScreen(): React.JSX.Element {
 
   const [latencyMs] = useState<number | null>(45);
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
+  const [isStopping, setIsStopping] = useState(false);
 
   // Language pack status display (iOS only) — read-only, no download from here
   type PackRowStatus = LanguagePackStatus | 'loading';
@@ -187,6 +188,7 @@ export function MeetingScreen(): React.JSX.Element {
     if (!confirmed) return;
 
     console.warn('[MeetingScreen] handleStopMeeting: confirmed, starting stop');
+    setIsStopping(true);
     try {
       console.warn('[MeetingScreen] calling stopMeeting()...');
       const result = await stopMeeting();
@@ -204,6 +206,8 @@ export function MeetingScreen(): React.JSX.Element {
       }
     } catch (error) {
       console.warn('[MeetingScreen] stopMeeting failed, staying on screen:', error);
+    } finally {
+      setIsStopping(false);
     }
   }, [stopMeeting, navigation]);
 
@@ -434,6 +438,14 @@ export function MeetingScreen(): React.JSX.Element {
       {/* Developer Metrics Overlay — visible only when dev mode is on */}
       {developerMode && isActive && <DeveloperMetricsOverlay />}
 
+      {/* Stopping overlay */}
+      {isStopping && (
+        <View style={styles.stoppingOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.stoppingText}>Đang lưu...</Text>
+        </View>
+      )}
+
       {!isLiveWorkspace && (
         <View
           style={[
@@ -644,6 +656,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  stoppingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    zIndex: 100,
+  },
+  stoppingText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

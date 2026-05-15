@@ -241,7 +241,18 @@ const LANG_COLORS: Record<string, {text: string; bg: string}> = {
   EN: {text: '#c6bfff', bg: 'rgba(198,191,255,0.12)'},
   JA: {text: '#44eeba', bg: 'rgba(68,238,186,0.12)'},
   KO: {text: '#adc6ff', bg: 'rgba(173,198,255,0.12)'},
+  ZH: {text: '#ffb347', bg: 'rgba(255,179,71,0.12)'},
 };
+
+function getLanguageFlag(lang: string): string {
+  switch (lang.toUpperCase()) {
+    case 'EN': return '🇬🇧';
+    case 'JA': return '🇯🇵';
+    case 'KO': return '🇰🇷';
+    case 'ZH': return '🇨🇳';
+    default:   return '🌐';
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Component
@@ -439,11 +450,9 @@ export function SessionReviewScreen(): React.JSX.Element {
             <Text style={[styles.timestamp, {color: theme.colors.text.tertiary}]}>
               {formatTimestamp(item.timestamp)}
             </Text>
-            <View style={[styles.langBadge, {backgroundColor: langStyle.bg}]}>
-              <Text style={[styles.langBadgeText, {color: langStyle.text}]}>
-                {langUpper}
-              </Text>
-            </View>
+            <Text style={styles.langFlag}>
+              {getLanguageFlag(langUpper)}
+            </Text>
           </View>
 
           {/* Original text card */}
@@ -544,21 +553,21 @@ export function SessionReviewScreen(): React.JSX.Element {
         </View>
         <View style={styles.languageSplitRow}>
           <View style={styles.languageSplitItem}>
-            <Text style={[styles.languageSplitLabel, {color: '#c6bfff'}]}>EN</Text>
+            <Text style={styles.languageSplitLabel}>🇬🇧</Text>
             <Text style={[styles.languageSplitCount, {color: theme.colors.text.secondary}]}>
               {lb.EN}
             </Text>
           </View>
           <View style={[styles.languageSplitDivider, {backgroundColor: theme.colors.border.subtle}]} />
           <View style={styles.languageSplitItem}>
-            <Text style={[styles.languageSplitLabel, {color: '#44eeba'}]}>JA</Text>
+            <Text style={styles.languageSplitLabel}>🇯🇵</Text>
             <Text style={[styles.languageSplitCount, {color: theme.colors.text.secondary}]}>
               {lb.JA}
             </Text>
           </View>
           <View style={[styles.languageSplitDivider, {backgroundColor: theme.colors.border.subtle}]} />
           <View style={styles.languageSplitItem}>
-            <Text style={[styles.languageSplitLabel, {color: '#adc6ff'}]}>KO</Text>
+            <Text style={styles.languageSplitLabel}>🇰🇷</Text>
             <Text style={[styles.languageSplitCount, {color: theme.colors.text.secondary}]}>
               {lb.KO}
             </Text>
@@ -1329,16 +1338,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.5,
   },
-  langBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  langBadgeText: {
-    fontFamily: 'System',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+  langFlag: {
+    fontSize: 16,
+    lineHeight: 20,
   },
   textCard: {
     borderRadius: 12,

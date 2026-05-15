@@ -1,6 +1,7 @@
 import Foundation
 import Translation
 import SwiftUI
+import AVFoundation
 
 typealias ResolveBlock = (Any?) -> Void
 typealias RejectBlock = (String?, String?, Error?) -> Void
@@ -290,6 +291,10 @@ class AppleTranslatorModule: NSObject {
                 holder.vc?.removeFromParent()
                 holder.vc = nil
 
+                // Reactivate audio session — the Apple Translation popup may have
+                // interrupted AVAudioSession, causing SenseVoice to stop receiving audio.
+                try? AVAudioSession.sharedInstance().setActive(true, options: [.notifyOthersOnDeactivation])
+
                 if let results {
                     if texts.count == 1 {
                         resolve((results.first ?? texts.first ?? "") as Any?)
@@ -300,6 +305,13 @@ class AppleTranslatorModule: NSObject {
                     resolve(fallback)
                 }
             }
+        }
+
+        // 30-second hard timeout: if translationTask never fires (e.g. topVC hierarchy
+        // changed after navigation), resolve with fallback so active flag is released.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            complete(nil)
         }
 
         let trigger = TranslationRunTrigger(configuration: config, texts: texts, onComplete: complete)

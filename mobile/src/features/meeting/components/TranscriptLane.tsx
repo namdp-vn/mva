@@ -87,7 +87,7 @@ function LanguageBadge({language}: {language: string | null}) {
   const {theme} = useTheme();
   if (!language) return null;
   return (
-    <View style={[styles.languageBadge, {backgroundColor: theme.colors.primary}]}>
+    <View style={styles.languageBadge}>
       <Text style={styles.languageFlag}>{getLanguageFlag(language)}</Text>
     </View>
   );

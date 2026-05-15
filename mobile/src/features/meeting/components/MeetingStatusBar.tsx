@@ -137,7 +137,7 @@ function LanguageBadge({language}: LanguageBadgeProps): React.JSX.Element {
   });
 
   return (
-    <View style={[styles.languageBadge, {backgroundColor: badgeStyle.backgroundColor}]}>
+    <View style={styles.languageBadge}>
       <Text style={styles.languageFlag}>
         {getLanguageFlag(language)}
       </Text>

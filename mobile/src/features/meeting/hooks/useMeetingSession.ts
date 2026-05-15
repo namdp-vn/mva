@@ -1004,6 +1004,8 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       const recognizer = realRecognizerRef.current ?? realSpeechRecognizer;
       const pipeline = pipelineRef.current ?? meetingPipeline;
 
+      getOnDeviceTranslator().cancelPending();
+
       if (currentSession.status === 'recording' || currentSession.status === 'stopping') {
         (async () => {
           if (currentSession.id) {
@@ -1106,7 +1108,9 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     async (sourceLanguage: SourceLanguage = 'en', targetLanguage: TargetLanguage = 'vi') => {
       console.warn('[useMeetingSession] startMeeting: entered', {sourceLanguage, targetLanguage});
       const persistence = getPersistenceService();
-      getOnDeviceTranslator().clearMemoryPressureSuppression();
+      const translator = getOnDeviceTranslator();
+      translator.cancelPending();
+      translator.clearMemoryPressureSuppression();
       stoppingSessionRef.current = false;
       if (IOS_DEBUG_TRANSLATION_SAFE_MODE) {
         console.warn('[useMeetingSession] iOS debug live translation disabled; final utterances will be backfilled after stopMeeting.');
