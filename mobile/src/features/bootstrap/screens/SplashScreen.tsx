@@ -213,7 +213,7 @@ export const SplashScreen: React.FC = () => {
           const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
           warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
 
-          if (missing.length > 0 && Platform.OS === 'ios' && allSupported) {
+          if (installed.length === 0 && missing.length > 0 && Platform.OS === 'ios' && allSupported) {
             const nativeModule = getNativeAppleTranslator();
             const allPacks = getLanguagePacksToCheck(targetLanguage);
             const missingObjs = allPacks.filter(p => missing.includes(p.displayName));
