@@ -145,12 +145,14 @@ export const SplashScreen: React.FC = () => {
   const [failedPacks, setFailedPacks] = useState<string[]>([]);
   const [dlProgress, setDlProgress] = useState({index: 0, total: 4, packName: '', isVerifying: false});
   const userChoiceRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const skipAllPacksRef = useRef<(() => void) | null>(null);
   const hasBootstrappedRef = useRef(false);
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
 
   const handleConfirmDownload = () => userChoiceRef.current?.(true);
   const handleSkipDownload = () => userChoiceRef.current?.(false);
+  const handleSkipAllPacks = () => skipAllPacksRef.current?.();
 
   useEffect(() => {
     if (hasBootstrappedRef.current) {
@@ -239,29 +241,72 @@ export const SplashScreen: React.FC = () => {
                 }
 
                 // --- Download phase ---
-                // 130s JS-side timeout — Swift has its own 120s timeout; this is
-                // a safety net in case the native bridge itself stalls.
-                // 190s = 120s Swift hard timeout + 60s background polling + 10s buffer
-                const PACK_DOWNLOAD_TIMEOUT_MS = 190_000;
+                // Per-pack retry: if the Apple popup is dismissed before the download
+                // finishes, the native side returns false immediately (iOS does NOT
+                // continue downloading in background after dismissal). We re-show the
+                // popup automatically until the pack is installed or user skips.
+                //
+                // 185s JS timeout per attempt — 5s headroom over Swift's 180s hard
+                // timeout so Swift always resolves before JS races it away.
+                const PACK_DOWNLOAD_TIMEOUT_MS = 185_000;
                 setLangPackStep('downloading');
-                for (let i = 0; i < pendingPacks.length; i++) {
+
+                let skipAllDownloads = false;
+                for (let i = 0; i < pendingPacks.length && !skipAllDownloads; i++) {
                   const pack = pendingPacks[i];
-                  setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
-                  if (nativeModule) {
+                  let packInstalled = false;
+
+                  while (!packInstalled && !skipAllDownloads && nativeModule) {
+                    setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
+
+                    // skipPromise resolves when user presses "Bỏ qua tất cả"
+                    const skipPromise = new Promise<'skip'>(resolve => {
+                      skipAllPacksRef.current = () => resolve('skip');
+                    });
+
+                    let outcome: boolean | 'skip';
                     try {
-                      await Promise.race([
+                      outcome = await Promise.race<boolean | 'skip'>([
                         nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage),
-                        new Promise<void>(r => setTimeout(r, PACK_DOWNLOAD_TIMEOUT_MS)),
+                        new Promise<false>(r => setTimeout(() => r(false), PACK_DOWNLOAD_TIMEOUT_MS)),
+                        skipPromise,
                       ]);
                     } catch {
                       warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
+                      outcome = false;
                     }
-                    // Allow iOS to finish dismissing the download sheet before
-                    // the next pack — topViewController() can return the
-                    // sheet VC mid-animation, causing the next hosting controller
-                    // to be parented to a dismissing VC and never show a popup.
-                    await delay(700);
+
+                    skipAllPacksRef.current = null;
+
+                    if (outcome === 'skip') {
+                      skipAllDownloads = true;
+                    } else if (outcome === true) {
+                      packInstalled = true;
+                    } else {
+                      // Popup was closed — check if pack actually installed anyway
+                      const s = await nativeModule
+                        .getLanguagePackStatus(pack.srcLang, targetLanguage)
+                        .catch(() => 'unknown' as const);
+                      if (s === 'installed') {
+                        packInstalled = true;
+                      } else {
+                        // Wait for iOS sheet dismissal animation then re-show popup
+                        await delay(700);
+                      }
+                    }
                   }
+
+                  // Gap between packs so iOS finishes dismissing previous sheet
+                  if (!skipAllDownloads && i < pendingPacks.length - 1) {
+                    await delay(500);
+                  }
+                }
+
+                if (skipAllDownloads) {
+                  markPacksSkipped();
+                  warnLog('[SplashScreen] User skipped all language pack downloads');
+                  keepRetrying = false;
+                  break;
                 }
 
                 // --- Verify phase: check actual installed status for all 4 packs ---
@@ -468,8 +513,13 @@ export const SplashScreen: React.FC = () => {
               <Text style={[styles.downloadHint, {color: theme.colors.text.tertiary}]}>
                 {dlProgress.isVerifying
                   ? 'Xác nhận trạng thái tải xuống...'
-                  : 'Apple sẽ hiển thị hộp thoại tải cho từng gói'}
+                  : 'Ấn "Tải xuống" và giữ popup cho đến khi hoàn tất.\nNếu popup đóng sớm, nó sẽ tự mở lại.'}
               </Text>
+              {!dlProgress.isVerifying && (
+                <Pressable style={{marginTop: spacing.sm, padding: spacing.xs}} onPress={handleSkipAllPacks}>
+                  <Text style={{color: theme.colors.text.tertiary, fontSize: 13, textDecorationLine: 'underline'}}>Bỏ qua tất cả</Text>
+                </Pressable>
+              )}
             </View>
           ) : langPackStep === 'retry' ? (
             <View style={[styles.langPackCard, {borderColor: '#ffb4ab', backgroundColor: isDark ? 'rgba(255,180,171,0.06)' : 'rgba(255,180,171,0.08)'}]}>

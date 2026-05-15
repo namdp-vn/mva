@@ -20,25 +20,9 @@ private struct LanguageDownloadTrigger: View {
                     try await session.prepareTranslation()
                     onComplete(true)
                 } catch {
-                    // Sheet was dismissed before prepareTranslation() finished.
-                    // The user may have tapped "Done" after confirming the download,
-                    // in which case iOS continues downloading in the background.
-                    // Poll LanguageAvailability.status() to detect silent completion.
-                    guard let src = configuration.source, let tgt = configuration.target else {
-                        onComplete(false)
-                        return
-                    }
-                    let availability = LanguageAvailability()
-                    for _ in 0..<20 { // 20 × 3 s = 60 s max
-                        guard !Task.isCancelled else { return }
-                        try? await Task.sleep(nanoseconds: 3_000_000_000)
-                        guard !Task.isCancelled else { return }
-                        let status = await availability.status(from: src, to: tgt)
-                        if status == .installed {
-                            onComplete(true)
-                            return
-                        }
-                    }
+                    // Sheet was dismissed before the download completed.
+                    // iOS does NOT continue downloading in the background after dismissal,
+                    // so return false immediately — the JS side will re-show the popup.
                     onComplete(false)
                 }
             }
@@ -379,11 +363,11 @@ class AppleTranslatorModule: NSObject {
         hostingVC.endAppearanceTransition()
         hostingVC.didMove(toParent: topVC)
 
-        // 190-second hard timeout — covers 120s for prepareTranslation() plus
-        // 60s for the background-download polling loop in LanguageDownloadTrigger.
+        // 180-second hard timeout — generous for slow connections where
+        // prepareTranslation() waits for a large pack to fully download.
         // If nothing resolves by then, remove the VC and fail gracefully.
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 190_000_000_000)
+            try? await Task.sleep(nanoseconds: 180_000_000_000)
             finish(false)
         }
     }
