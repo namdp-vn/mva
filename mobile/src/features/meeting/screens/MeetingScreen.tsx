@@ -112,11 +112,11 @@ export function MeetingScreen(): React.JSX.Element {
   const handleStopMeeting = useCallback(async () => {
     const confirmed = await new Promise<boolean>(resolve => {
       Alert.alert(
-        'Kết thúc cuộc hội thoại?',
-        'Cuộc hội thoại sẽ được dừng lại và lưu để xem lại.',
+        'Bạn có chắc chắn muốn dừng cuộc hội thoại này không?',
+        '',
         [
           {text: 'Hủy', style: 'cancel', onPress: () => resolve(false)},
-          {text: 'Dừng & Lưu', style: 'destructive', onPress: () => resolve(true)},
+          {text: 'Dừng và lưu lại', style: 'destructive', onPress: () => resolve(true)},
         ],
         {cancelable: true, onDismiss: () => resolve(false)},
       );
