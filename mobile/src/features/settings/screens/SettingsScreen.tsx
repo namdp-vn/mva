@@ -16,6 +16,7 @@ import {
   Alert,
   SafeAreaView,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -38,6 +39,7 @@ import {
   getDiarizationThresholdDescription,
 } from '../../../shared/config/runtimeConfig';
 import {getPersistenceService} from '../../../services/persistence';
+import getNativeAppleTranslator, {LanguagePackStatus} from '../../../native/NativeAppleTranslator';
 import {getSpeakerClusterService, type SpeakerClusterConfig} from '../../../services/speaker/SpeakerClusterService';
 import {spacing, borderRadius, typography} from '../../../shared/constants';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
@@ -78,6 +80,49 @@ export function SettingsScreen(): React.JSX.Element {
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
   const [devUnlockTapCount, setDevUnlockTapCount] = useState(0);
 
+  type PackRowStatus = LanguagePackStatus | 'loading';
+  const LANG_PACKS: {srcLang: string; label: string}[] = [
+    {srcLang: 'en', label: 'English'},
+    {srcLang: 'ja', label: 'Japanese'},
+    {srcLang: 'ko', label: 'Korean'},
+    {srcLang: 'zh', label: 'Chinese'},
+  ];
+  const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>({});
+
+  const refreshPackStatuses = useCallback(async () => {
+    if (Platform.OS !== 'ios') { return; }
+    const nativeModule = getNativeAppleTranslator();
+    if (!nativeModule) { return; }
+    const results: Record<string, PackRowStatus> = {};
+    await Promise.all(
+      LANG_PACKS.map(async ({srcLang}) => {
+        try {
+          results[srcLang] = await nativeModule.getLanguagePackStatus(srcLang, targetLanguage);
+        } catch {
+          results[srcLang] = 'unknown';
+        }
+      }),
+    );
+    setPackStatuses(results);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLanguage]);
+
+  const handleDownloadPack = useCallback(async (srcLang: string) => {
+    const nativeModule = getNativeAppleTranslator();
+    if (!nativeModule) { return; }
+    setPackStatuses(prev => ({...prev, [srcLang]: 'loading'}));
+    try {
+      await nativeModule.downloadLanguageIfNeeded(srcLang, targetLanguage);
+    } catch { /* ignore */ }
+    // Re-check status after Apple sheet closes
+    try {
+      const status = await nativeModule.getLanguagePackStatus(srcLang, targetLanguage);
+      setPackStatuses(prev => ({...prev, [srcLang]: status}));
+    } catch {
+      setPackStatuses(prev => ({...prev, [srcLang]: 'unknown'}));
+    }
+  }, [targetLanguage]);
+
   useEffect(() => {
     let mounted = true;
     getPersistenceService()
@@ -96,6 +141,10 @@ export function SettingsScreen(): React.JSX.Element {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    refreshPackStatuses();
+  }, [refreshPackStatuses]);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -309,6 +358,56 @@ export function SettingsScreen(): React.JSX.Element {
             </View>
           </View>
         </View>
+
+        {/* Translation Language Packs (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Translation Language Packs</Text>
+            <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>Apple Translation packs stored offline on this device. ~30MB per pack.</Text>
+            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
+              {LANG_PACKS.map(({srcLang, label}, index) => {
+                const status = packStatuses[srcLang];
+                const isInstalled = status === 'installed';
+                const isLoading = status === 'loading';
+                const isAvailable = status === 'available';
+                return (
+                  <React.Fragment key={srcLang}>
+                    {index > 0 && <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />}
+                    <View style={styles.packRow}>
+                      <View style={styles.settingInfo}>
+                        <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{label}</Text>
+                        <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
+                          {`${label} → ${currentLangOption.nativeLabel}`}
+                        </Text>
+                      </View>
+                      {isLoading ? (
+                        <ActivityIndicator size="small" color={theme.colors.primary} />
+                      ) : isInstalled ? (
+                        <View style={[styles.statusBadge, {backgroundColor: theme.colors.secondary + '20', borderColor: theme.colors.secondary + '40'}]}>
+                          <AppIcon name="check-circle" size={12} color={theme.colors.secondary} />
+                          <Text style={[styles.statusBadgeText, {color: theme.colors.secondary}]}>Installed</Text>
+                        </View>
+                      ) : isAvailable ? (
+                        <TouchableOpacity
+                          style={[styles.packDownloadBtn, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '60'}]}
+                          onPress={() => handleDownloadPack(srcLang)}
+                          activeOpacity={0.7}>
+                          <Text style={[styles.packDownloadBtnText, {color: theme.colors.primary}]}>Tải xuống</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={[styles.statusBadge, {backgroundColor: theme.colors.text.tertiary + '20', borderColor: theme.colors.border.subtle}]}>
+                          <Text style={[styles.statusBadgeText, {color: theme.colors.text.tertiary}]}>
+                            {status === 'unsupported' ? 'N/A' : '—'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Appearance Section */}
         <View style={styles.section}>
@@ -1049,6 +1148,24 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     textTransform: 'uppercase',
     letterSpacing: typography.letterSpacing.widest,
+  },
+  packRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  packDownloadBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  packDownloadBtnText: {
+    fontFamily: typography.fontFamily.label,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
   },
   sttEngineCard: {
     padding: spacing.md,
