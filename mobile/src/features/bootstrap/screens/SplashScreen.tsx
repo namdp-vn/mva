@@ -275,7 +275,7 @@ export const SplashScreen: React.FC = () => {
                 // are installed. User can press "Dừng tải" to cancel early.
                 setLangPackStep('waiting-download');
 
-                const MAX_WAIT_MS = 5 * 60_000; // 5 minutes max
+                const MAX_WAIT_MS = 90_000; // 90s — enough for ~30 MB on slow connection
                 const POLL_INTERVAL_MS = 3_000;
                 const waitStart = Date.now();
                 let allInstalledNow = false;
@@ -501,7 +501,7 @@ export const SplashScreen: React.FC = () => {
               </Text>
               <ActivityIndicator size="small" color={theme.colors.secondary} style={{marginTop: spacing.sm}} />
               <Text style={[styles.downloadHint, {color: theme.colors.text.tertiary}]}>
-                Giữ app mở, quá trình sẽ tự hoàn tất khi tải xong
+                {'iOS đang tải ngôn ngữ về nền, vui lòng giữ app mở.\n\nNếu chưa ấn "Tải xuống" trong popup, hãy ấn Dừng tải và thử lại.'}
               </Text>
               <View style={[styles.langPackActions, {marginTop: spacing.md}]}>
                 <Pressable
