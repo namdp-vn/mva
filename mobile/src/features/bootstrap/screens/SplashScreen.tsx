@@ -141,16 +141,31 @@ export const SplashScreen: React.FC = () => {
 
   const [isInitializing, setIsInitializing] = useState(true);
   const [langPackStep, setLangPackStep] = useState<'idle' | 'needs-download' | 'downloading' | 'retry'>('idle');
-  const [missingPacks, setMissingPacks] = useState<string[]>([]);
+  const [missingPackObjs, setMissingPackObjs] = useState<LanguagePackCheck[]>([]);
   const [failedPacks, setFailedPacks] = useState<string[]>([]);
-  const [dlProgress, setDlProgress] = useState({index: 0, total: 4, packName: '', isVerifying: false});
+  const [selectedSrcLangs, setSelectedSrcLangs] = useState<Set<string>>(new Set());
+  const selectedSrcLangsRef = useRef<Set<string>>(new Set());
+  const [packDownloadItems, setPackDownloadItems] = useState<{srcLang: string; displayName: string; status: 'pending' | 'downloading' | 'done'}[]>([]);
+  const [isVerifying, setIsVerifying] = useState(false);
   const userChoiceRef = useRef<((confirmed: boolean) => void) | null>(null);
   const hasBootstrappedRef = useRef(false);
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
 
-  const handleConfirmDownload = () => userChoiceRef.current?.(true);
   const handleSkipDownload = () => userChoiceRef.current?.(false);
+  const handleStartDownload = () => {
+    selectedSrcLangsRef.current = selectedSrcLangs;
+    userChoiceRef.current?.(true);
+  };
+  const handleRetryDownload = () => userChoiceRef.current?.(true);
+  const handleToggleLang = (srcLang: string) => {
+    setSelectedSrcLangs(prev => {
+      const next = new Set(prev);
+      if (next.has(srcLang)) { next.delete(srcLang); } else { next.add(srcLang); }
+      selectedSrcLangsRef.current = next;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (hasBootstrappedRef.current) {
@@ -199,22 +214,32 @@ export const SplashScreen: React.FC = () => {
           warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
 
           if (missing.length > 0 && Platform.OS === 'ios' && allSupported) {
-            setMissingPacks(missing);
+            const nativeModule = getNativeAppleTranslator();
+            const allPacks = getLanguagePacksToCheck(targetLanguage);
+            const missingObjs = allPacks.filter(p => missing.includes(p.displayName));
+
+            // Show language selection UI
+            setMissingPackObjs(missingObjs);
+            const initSelected = new Set(missingObjs.map(p => p.srcLang));
+            selectedSrcLangsRef.current = initSelected;
+            setSelectedSrcLangs(initSelected);
             setLangPackStep('needs-download');
 
             const confirmed = await new Promise<boolean>(resolve => {
               userChoiceRef.current = resolve;
             });
 
-            if (!confirmed) {
+            if (!confirmed || selectedSrcLangsRef.current.size === 0) {
               markPacksSkipped();
               warnLog('[SplashScreen] User skipped language pack download');
             } else {
-              const nativeModule = getNativeAppleTranslator();
-              const allPacks = getLanguagePacksToCheck(targetLanguage);
-              // First attempt covers all packs; retries cover only failed ones
-              let pendingPacks = allPacks;
+              // Only download packs the user selected
+              const selectedPacks = allPacks.filter(p => selectedSrcLangsRef.current.has(p.srcLang));
+              let pendingPacks = [...selectedPacks];
               let keepRetrying = true;
+
+              // Initialize per-pack progress UI
+              setPackDownloadItems(selectedPacks.map(p => ({...p, status: 'pending' as const})));
 
               while (keepRetrying && pendingPacks.length > 0) {
                 // --- Pre-check: skip download UI if packs are already installed ---
@@ -239,12 +264,8 @@ export const SplashScreen: React.FC = () => {
                 }
 
                 // --- Download phase ---
-                // Per-pack retry loop: the popup re-opens automatically if dismissed
-                // before the download finishes. Only moves to the next pack once the
-                // current pack is confirmed installed (or the JS safety timeout fires).
-                //
-                // 185s JS fallback — dismissal monitor on Swift side fires in ~300 ms,
-                // so this timeout only triggers if the monitor fails entirely.
+                // Per-pack retry: popup re-opens automatically (via Swift dismissal monitor)
+                // until the pack is confirmed installed. 185s JS fallback is rarely needed.
                 const PACK_DOWNLOAD_TIMEOUT_MS = 185_000;
                 setLangPackStep('downloading');
 
@@ -252,12 +273,13 @@ export const SplashScreen: React.FC = () => {
                   const pack = pendingPacks[i];
                   let packInstalled = false;
 
+                  // Mark this pack as actively downloading
+                  setPackDownloadItems(prev => prev.map(item =>
+                    item.srcLang === pack.srcLang ? {...item, status: 'downloading' as const} : item,
+                  ));
+
                   while (!packInstalled && nativeModule) {
-                    setDlProgress({index: i + 1, total: pendingPacks.length, packName: pack.displayName, isVerifying: false});
                     try {
-                      // Ignore the return value — always verify with getLanguagePackStatus
-                      // because downloadLanguageIfNeeded can return true even when the pack
-                      // is not yet fully installed (e.g. race in the native bridge).
                       await Promise.race([
                         nativeModule.downloadLanguageIfNeeded(pack.srcLang, targetLanguage),
                         new Promise<void>(r => setTimeout(r, PACK_DOWNLOAD_TIMEOUT_MS)),
@@ -266,29 +288,30 @@ export const SplashScreen: React.FC = () => {
                       warnLog(`[SplashScreen] downloadLanguageIfNeeded threw for ${pack.displayName}`);
                     }
 
-                    // Source of truth: check actual install status regardless of what download returned
                     const s = await nativeModule
                       .getLanguagePackStatus(pack.srcLang, targetLanguage)
                       .catch(() => 'unknown' as const);
                     if (s === 'installed') {
                       packInstalled = true;
                     } else {
-                      // Not installed yet — wait for iOS sheet animation then re-show popup
                       await delay(700);
                     }
                   }
 
-                  // Brief gap so iOS finishes dismissing before the next popup appears
+                  // Mark done and wait for iOS to finish sheet dismissal
+                  setPackDownloadItems(prev => prev.map(item =>
+                    item.srcLang === pack.srcLang ? {...item, status: 'done' as const} : item,
+                  ));
                   if (i < pendingPacks.length - 1) {
                     await delay(500);
                   }
                 }
 
                 // --- Verify phase ---
-                await delay(1500);
-                setDlProgress({index: pendingPacks.length, total: pendingPacks.length, packName: 'Đang kiểm tra...', isVerifying: true});
+                await delay(1000);
+                setIsVerifying(true);
                 const nowFailed: string[] = [];
-                for (const pack of allPacks) {
+                for (const pack of selectedPacks) {
                   if (!nativeModule) { nowFailed.push(pack.displayName); continue; }
                   try {
                     const status = await nativeModule.getLanguagePackStatus(pack.srcLang, targetLanguage);
@@ -297,10 +320,11 @@ export const SplashScreen: React.FC = () => {
                     nowFailed.push(pack.displayName);
                   }
                 }
+                setIsVerifying(false);
 
                 if (nowFailed.length === 0) {
                   markPacksDownloaded();
-                  warnLog('[SplashScreen] All language packs verified as installed');
+                  warnLog('[SplashScreen] All selected language packs verified');
                   keepRetrying = false;
                 } else {
                   setFailedPacks(nowFailed);
@@ -311,7 +335,8 @@ export const SplashScreen: React.FC = () => {
                     markPacksSkipped();
                     keepRetrying = false;
                   } else {
-                    pendingPacks = allPacks.filter(p => nowFailed.includes(p.displayName));
+                    pendingPacks = selectedPacks.filter(p => nowFailed.includes(p.displayName));
+                    setPackDownloadItems(pendingPacks.map(p => ({...p, status: 'pending' as const})));
                   }
                 }
               }
@@ -402,22 +427,28 @@ export const SplashScreen: React.FC = () => {
           {langPackStep === 'needs-download' ? (
             <View style={[styles.langPackCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
               <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
-                Cần tải gói ngôn ngữ dịch thuật
+                Chọn ngôn ngữ cần tải
               </Text>
               <Text style={[styles.langPackBody, {color: theme.colors.text.secondary}]}>
-                Để dịch thuật real-time trong cuộc họp, app cần tải về các gói ngôn ngữ từ Apple Translation. Các gói này chạy hoàn toàn offline sau khi tải.
+                Chọn các ngôn ngữ bạn muốn dịch thuật. Các gói chạy hoàn toàn offline sau khi tải.
               </Text>
               <View style={styles.langPackList}>
-                {[
-                  'English → Tiếng Việt',
-                  'Korean → Tiếng Việt',
-                  'Chinese → Tiếng Việt',
-                  'Japanese → Tiếng Việt',
-                ].map(item => (
-                  <View key={item} style={styles.langPackItem}>
-                    <Text style={[styles.langPackItemDot, {color: theme.colors.secondary}]}>◆</Text>
-                    <Text style={[styles.langPackItemText, {color: theme.colors.text.secondary}]}>{item}</Text>
-                  </View>
+                {missingPackObjs.map(pack => (
+                  <Pressable
+                    key={pack.srcLang}
+                    style={styles.langPackItem}
+                    onPress={() => handleToggleLang(pack.srcLang)}>
+                    <View style={[
+                      styles.checkbox,
+                      {borderColor: theme.colors.secondary},
+                      selectedSrcLangs.has(pack.srcLang) && {backgroundColor: theme.colors.secondary},
+                    ]}>
+                      {selectedSrcLangs.has(pack.srcLang) && (
+                        <Text style={[styles.checkboxTick, {color: isDark ? '#0a1a14' : '#ffffff'}]}>✓</Text>
+                      )}
+                    </View>
+                    <Text style={[styles.langPackItemText, {color: theme.colors.text.secondary}]}>{pack.displayName}</Text>
+                  </Pressable>
                 ))}
               </View>
               <Text style={[styles.langPackNote, {color: theme.colors.text.tertiary}]}>
@@ -430,50 +461,36 @@ export const SplashScreen: React.FC = () => {
                   <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>Bỏ qua</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}]}
-                  onPress={handleConfirmDownload}>
-                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Đồng ý</Text>
+                  style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}, selectedSrcLangs.size === 0 && {opacity: 0.4}]}
+                  onPress={handleStartDownload}
+                  disabled={selectedSrcLangs.size === 0}>
+                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Bắt đầu tải</Text>
                 </Pressable>
               </View>
             </View>
           ) : langPackStep === 'downloading' ? (
-            <View style={[styles.downloadCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
-              <Text style={[styles.downloadTitle, {color: theme.colors.text.primary}]}>
-                {dlProgress.isVerifying ? 'Đang kiểm tra...' : 'Đang tải gói ngôn ngữ...'}
+            <View style={[styles.langPackCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
+              <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
+                {isVerifying ? 'Đang kiểm tra...' : 'Đang tải gói ngôn ngữ'}
               </Text>
-              {!dlProgress.isVerifying && (
-                <Text style={[styles.downloadPackName, {color: theme.colors.text.secondary}]}>
-                  {dlProgress.packName}
-                </Text>
-              )}
-              <View style={styles.stepDots}>
-                {Array.from({length: 4}, (_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.stepDot,
-                      {
-                        backgroundColor:
-                          i < dlProgress.index - 1
-                            ? theme.colors.secondary
-                            : i === dlProgress.index - 1
-                            ? theme.colors.secondary + 'aa'
-                            : isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
-                      },
-                    ]}
-                  />
+              <View style={styles.langPackList}>
+                {packDownloadItems.map(item => (
+                  <View key={item.srcLang} style={styles.langPackItem}>
+                    {item.status === 'done' ? (
+                      <Text style={[styles.packStatusIcon, {color: theme.colors.secondary}]}>✓</Text>
+                    ) : item.status === 'downloading' ? (
+                      <ActivityIndicator size="small" color={theme.colors.secondary} style={styles.packStatusSpinner} />
+                    ) : (
+                      <Text style={[styles.packStatusIcon, {color: theme.colors.text.tertiary}]}>○</Text>
+                    )}
+                    <Text style={[styles.langPackItemText, {color: theme.colors.text.secondary}]}>{item.displayName}</Text>
+                  </View>
                 ))}
               </View>
-              {!dlProgress.isVerifying && (
-                <Text style={[styles.downloadCounter, {color: theme.colors.text.tertiary}]}>
-                  {dlProgress.index} / {dlProgress.total} gói
-                </Text>
-              )}
-              <ActivityIndicator size="small" color={theme.colors.secondary} style={{marginTop: spacing.xs}} />
-              <Text style={[styles.downloadHint, {color: theme.colors.text.tertiary}]}>
-                {dlProgress.isVerifying
+              <Text style={[styles.langPackNote, {color: theme.colors.text.tertiary}]}>
+                {isVerifying
                   ? 'Xác nhận trạng thái tải xuống...'
-                  : 'Ấn "Tải xuống" và đợi cho đến khi hoàn tất.\nNếu đóng popup sớm, popup sẽ tự mở lại.'}
+                  : 'Ấn "Tải xuống" và đợi hoàn tất. Popup tự mở lại nếu đóng sớm.'}
               </Text>
             </View>
           ) : langPackStep === 'retry' ? (
@@ -500,7 +517,7 @@ export const SplashScreen: React.FC = () => {
                 </Pressable>
                 <Pressable
                   style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}]}
-                  onPress={handleConfirmDownload}>
+                  onPress={handleRetryDownload}>
                   <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Thử lại</Text>
                 </Pressable>
               </View>
@@ -618,21 +635,17 @@ const styles = StyleSheet.create({
   langPackList: {gap: spacing.sm},
   langPackItem: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm},
   langPackItemDot: {fontSize: 8},
-  langPackItemText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md},
+  langPackItemText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, flex: 1},
+  checkbox: {width: 20, height: 20, borderRadius: 4, borderWidth: 2, alignItems: 'center', justifyContent: 'center'},
+  checkboxTick: {fontSize: 12, fontWeight: '700', lineHeight: 14},
+  packStatusIcon: {fontSize: 14, width: 20, textAlign: 'center'},
+  packStatusSpinner: {width: 20},
   langPackNote: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.sm, textAlign: 'center'},
   langPackActions: {flexDirection: 'row', gap: spacing.md, marginTop: spacing.xs},
   skipBtn: {flex: 1, borderWidth: 1, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center'},
   skipBtnText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, fontWeight: '600'},
   confirmBtn: {flex: 1, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center', ...shadows.card.elevated},
   confirmBtnText: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, fontWeight: '700'},
-  // Download progress card
-  downloadCard: {borderRadius: borderRadius.lg, borderWidth: 1, padding: spacing.lg, alignItems: 'center', gap: spacing.md},
-  downloadTitle: {fontFamily: typography.fontFamily.headline, fontSize: typography.fontSize.xl, fontWeight: '700', textAlign: 'center'},
-  downloadPackName: {fontFamily: typography.fontFamily.body, fontSize: typography.fontSize.md, textAlign: 'center'},
-  stepDots: {flexDirection: 'row', gap: spacing.sm},
-  stepDot: {width: 10, height: 10, borderRadius: 5},
-  downloadCounter: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.sm},
-  downloadHint: {fontFamily: typography.fontFamily.label, fontSize: typography.fontSize.xs, textAlign: 'center'},
 });
 
 export default SplashScreen;
