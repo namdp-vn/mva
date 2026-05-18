@@ -50,17 +50,15 @@ interface SessionItem {
 // Language Pill Colors (from mockup)
 // =============================================================================
 
-const LANGUAGE_COLORS: Record<string, {bg: string; text: string}> = {
-  EN: {bg: 'rgba(173, 198, 255, 0.2)', text: '#adc6ff'},   // tertiary
-  JA: {bg: 'rgba(255, 180, 171, 0.2)', text: '#ffb4ab'},   // error
-  KO: {bg: 'rgba(68, 238, 186, 0.2)', text: '#44eeba'},   // secondary
-  DE: {bg: 'rgba(68, 238, 186, 0.2)', text: '#44eeba'},
-  ZH: {bg: 'rgba(68, 238, 186, 0.2)', text: '#44eeba'},
-  VI: {bg: 'rgba(68, 238, 186, 0.2)', text: '#44eeba'},
-};
-
-function getLanguageColor(lang: string): {bg: string; text: string} {
-  return LANGUAGE_COLORS[lang.toUpperCase()] ?? {bg: 'rgba(200, 196, 215, 0.15)', text: '#c8c4d7'};
+function getLanguageFlag(lang: string): string {
+  switch (lang.toUpperCase()) {
+    case 'EN': return '🇬🇧';
+    case 'JA': return '🇯🇵';
+    case 'KO': return '🇰🇷';
+    case 'ZH': return '🇨🇳';
+    case 'VI': return '🇻🇳';
+    default:   return '🌐';
+  }
 }
 
 // =============================================================================
@@ -201,11 +199,8 @@ interface LanguagePillProps {
 }
 
 function LanguagePill({lang}: LanguagePillProps): React.JSX.Element {
-  const {bg, text} = getLanguageColor(lang);
   return (
-    <View style={[styles.languagePill, {backgroundColor: bg}]}>
-      <Text style={[styles.languagePillText, {color: text}]}>{lang}</Text>
-    </View>
+    <Text style={styles.languagePillFlag}>{getLanguageFlag(lang)}</Text>
   );
 }
 
@@ -676,15 +671,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 12,
   },
-  languagePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  languagePillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+  languagePillFlag: {
+    fontSize: 22,
   },
 
   // Utterance row
