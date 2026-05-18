@@ -12,7 +12,7 @@
  * @see docs/implementation-artifacts/4-6-deliver-accessibility-and-dark-mode-for-meeting-screen.md
  */
 
-import React, {useCallback, useState, useEffect, useRef} from 'react';
+import React, {useCallback, useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -37,19 +37,12 @@ import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
 import {requestAudioPermission} from '../../../shared/utils/permissions';
 import {arePacksDownloaded} from '../../../services/languagePackStatus';
-import getNativeAppleTranslator, {LanguagePackStatus} from '../../../native/NativeAppleTranslator';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
 type MeetingNavigationProp = StackNavigationProp<RootStackParamList, 'Meeting'>;
 type LaneFocusMode = 'original' | 'split' | 'translation';
 
-const LANG_PACKS_UI = [
-  {srcLang: 'en', flag: '🇬🇧', label: 'EN'},
-  {srcLang: 'ja', flag: '🇯🇵', label: 'JA'},
-  {srcLang: 'ko', flag: '🇰🇷', label: 'KO'},
-  {srcLang: 'zh', flag: '🇨🇳', label: 'ZH'},
-] as const;
 
 const APP_NAME = 'Executive MVA';
 
@@ -95,58 +88,6 @@ export function MeetingScreen(): React.JSX.Element {
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
   const [isStopping, setIsStopping] = useState(false);
 
-  // Language pack status display (iOS only) — read-only, no download from here
-  type PackRowStatus = LanguagePackStatus | 'loading';
-  const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>(() =>
-    Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'loading' as PackRowStatus])),
-  );
-  const mountedRef = useRef(true);
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-  useEffect(() => {
-    if (Platform.OS !== 'ios') { return; }
-    const nativeModule = getNativeAppleTranslator();
-    if (!nativeModule) {
-      setPackStatuses(Object.fromEntries(LANG_PACKS_UI.map(p => [p.srcLang, 'unsupported' as PackRowStatus])));
-      return;
-    }
-
-    const fetchAll = async (): Promise<Record<string, PackRowStatus>> => {
-      const results = await Promise.all(
-        LANG_PACKS_UI.map(async ({srcLang}) => ({
-          srcLang,
-          status: await nativeModule.getLanguagePackStatus(srcLang, targetLanguage).catch(() => 'unknown' as const),
-        })),
-      );
-      const map: Record<string, PackRowStatus> = {};
-      results.forEach(r => { map[r.srcLang] = r.status; });
-      return map;
-    };
-
-    const run = async () => {
-      // Initial fetch
-      const initial = await fetchAll();
-      if (!mountedRef.current) { return; }
-      setPackStatuses(initial);
-
-      // If any pack is 'available', poll every 10s (max 5 min = 30 polls)
-      // to catch background downloads that complete while on this screen.
-      const hasAvailable = Object.values(initial).some(s => s === 'available');
-      if (!hasAvailable) { return; }
-
-      for (let i = 0; i < 30; i++) {
-        await new Promise<void>(r => setTimeout(r, 10_000));
-        if (!mountedRef.current) { return; }
-        const updated = await fetchAll();
-        if (!mountedRef.current) { return; }
-        setPackStatuses(updated);
-        const stillAvailable = Object.values(updated).some(s => s === 'available');
-        if (!stillAvailable) { return; }
-      }
-    };
-
-    run();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetLanguage]);
 
   useEffect(() => {
     const modelsReady = modelState.status === 'cached-ready';
@@ -357,25 +298,7 @@ export function MeetingScreen(): React.JSX.Element {
         />
       </View>
 
-      {/* Language Pack Status Strip (iOS only) — display only, download via Settings */}
-      {Platform.OS === 'ios' && (
-        <View style={[styles.langPackStrip, {borderBottomColor: theme.colors.border.subtle}]}>
-          {LANG_PACKS_UI.map(({srcLang, flag, label}) => {
-            const status = packStatuses[srcLang];
-            const installed = status === 'installed';
-            const fetching = status === 'loading';
-            return (
-              <View key={srcLang} style={styles.flagBtn}>
-                {fetching ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} style={styles.flagSpinner} />
-                ) : (
-                  <Text style={[styles.flagEmoji, !installed && styles.flagDisabled]}>{flag}</Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      )}
+      {/* Language pack status is managed in Settings; strip removed to maximise conversation space */}
 
       {/* Two-Lane Content - Each lane independently scrollable */}
       <View
@@ -546,36 +469,6 @@ const styles = StyleSheet.create({
   statusBarContainer: {
     paddingHorizontal: 16,
     paddingTop: 6,
-  },
-  langPackStrip: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  flagBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 52,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 1,
-  },
-  flagSpinner: {
-    height: 22,
-  },
-  flagEmoji: {
-    fontSize: 22,
-  },
-  flagDisabled: {
-    opacity: 0.35,
-  },
-  flagLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
   lanesContainer: {
     flex: 1,

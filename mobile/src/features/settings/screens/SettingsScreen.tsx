@@ -81,11 +81,11 @@ export function SettingsScreen(): React.JSX.Element {
   const [devUnlockTapCount, setDevUnlockTapCount] = useState(0);
 
   type PackRowStatus = LanguagePackStatus | 'loading';
-  const LANG_PACKS: {srcLang: string; label: string}[] = [
-    {srcLang: 'en', label: 'English'},
-    {srcLang: 'ja', label: 'Japanese'},
-    {srcLang: 'ko', label: 'Korean'},
-    {srcLang: 'zh', label: 'Chinese'},
+  const LANG_PACKS: {srcLang: string; flag: string; label: string}[] = [
+    {srcLang: 'en', flag: '🇬🇧', label: 'English'},
+    {srcLang: 'ja', flag: '🇯🇵', label: 'Japanese'},
+    {srcLang: 'ko', flag: '🇰🇷', label: 'Korean'},
+    {srcLang: 'zh', flag: '🇨🇳', label: 'Chinese'},
   ];
   const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>({});
 
@@ -365,7 +365,7 @@ export function SettingsScreen(): React.JSX.Element {
             <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Translation Language Packs</Text>
             <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>Apple Translation packs stored offline on this device. ~30MB per pack.</Text>
             <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
-              {LANG_PACKS.map(({srcLang, label}, index) => {
+              {LANG_PACKS.map(({srcLang, flag, label}, index) => {
                 const status = packStatuses[srcLang];
                 const isInstalled = status === 'installed';
                 const isLoading = status === 'loading';
@@ -375,7 +375,7 @@ export function SettingsScreen(): React.JSX.Element {
                     {index > 0 && <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />}
                     <View style={styles.packRow}>
                       <View style={styles.settingInfo}>
-                        <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{label}</Text>
+                        <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{flag} {label}</Text>
                         <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
                           {`${label} → ${currentLangOption.nativeLabel}`}
                         </Text>
