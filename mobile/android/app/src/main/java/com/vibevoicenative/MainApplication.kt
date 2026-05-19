@@ -9,6 +9,7 @@ import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
+import com.vibevoicenative.keepawake.KeepAwakePackage
 import com.vibevoicenative.securestorage.SecureStorageBridgePackage
 import com.vibevoicenative.speaker.OfflineSpeakerDiarizationPackage
 import com.vibevoicenative.speaker.SpeakerEmbeddingPackage
@@ -20,6 +21,7 @@ class MainApplication : Application(), ReactApplication {
       object : DefaultReactNativeHost(this) {
         override fun getPackages(): List<ReactPackage> =
             PackageList(this).packages.apply {
+              add(KeepAwakePackage())
               add(SecureStorageBridgePackage())
               add(OfflineSpeakerDiarizationPackage())
               add(SpeakerEmbeddingPackage())

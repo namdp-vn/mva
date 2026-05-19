@@ -37,6 +37,7 @@ import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
 import {requestAudioPermission} from '../../../shared/utils/permissions';
 import {arePacksDownloaded} from '../../../services/languagePackStatus';
+import {activateKeepAwake, deactivateKeepAwake} from '../../../native/keepAwake';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
 import {useDeveloperMetrics} from '../store/developerMetricsStore';
 
@@ -88,6 +89,12 @@ export function MeetingScreen(): React.JSX.Element {
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
   const [isStopping, setIsStopping] = useState(false);
 
+  useEffect(() => {
+    if (isRecording) {
+      activateKeepAwake().catch(() => {});
+      return () => { deactivateKeepAwake().catch(() => {}); };
+    }
+  }, [isRecording]);
 
   useEffect(() => {
     const modelsReady = modelState.status === 'cached-ready';

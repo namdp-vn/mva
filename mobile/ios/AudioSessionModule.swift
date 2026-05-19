@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import React
+import UIKit
 
 @objc(AudioSessionModule)
 class AudioSessionModule: RCTEventEmitter {
@@ -103,6 +104,24 @@ class AudioSessionModule: RCTEventEmitter {
       } catch {
         reject("audio_session_deactivation_failed", error.localizedDescription, error)
       }
+    }
+  }
+
+  @objc
+  func activateKeepAwake(_ resolve: @escaping (Any?) -> Void,
+                         reject: @escaping (String?, String?, Error?) -> Void) {
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = true
+      resolve(true)
+    }
+  }
+
+  @objc
+  func deactivateKeepAwake(_ resolve: @escaping (Any?) -> Void,
+                            reject: @escaping (String?, String?, Error?) -> Void) {
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = false
+      resolve(true)
     }
   }
 }
