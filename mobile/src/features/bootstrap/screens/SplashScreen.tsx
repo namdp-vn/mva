@@ -218,9 +218,9 @@ export const SplashScreen: React.FC = () => {
             const allPacks = getLanguagePacksToCheck(targetLanguage);
             const missingObjs = allPacks.filter(p => missing.includes(p.displayName));
 
-            // Show language selection UI — no packs selected by default
+            // Show language selection UI — all missing packs selected by default
             setMissingPackObjs(missingObjs);
-            const initSelected = new Set<string>();
+            const initSelected = new Set<string>(missingObjs.map(p => p.srcLang));
             selectedSrcLangsRef.current = initSelected;
             setSelectedSrcLangs(initSelected);
             setLangPackStep('needs-download');
