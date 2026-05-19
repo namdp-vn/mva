@@ -1,6 +1,7 @@
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(AudioSessionModule, NSObject)
+@interface RCT_EXTERN_MODULE(AudioSessionModule, RCTEventEmitter)
 
 RCT_EXTERN_METHOD(activateRecordingSession:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)

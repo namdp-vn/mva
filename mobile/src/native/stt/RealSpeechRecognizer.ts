@@ -1,4 +1,5 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeEventEmitter, NativeModules, Platform } from 'react-native';
+import type { EmitterSubscription } from 'react-native';
 import { fileModelPath } from 'react-native-sherpa-onnx';
 import { createPcmLiveStream } from 'react-native-sherpa-onnx/audio';
 import { createSTT } from 'react-native-sherpa-onnx/stt';
@@ -127,6 +128,9 @@ export class RealSpeechRecognizer {
   private inferenceActive = false;
   private emitFn: ((event: MeetingPipelineEvent) => void) | null = null;
   private nextUtteranceSeed: number[] = [];
+  private interruptionSub: EmitterSubscription | null = null;
+  private resumeSub: EmitterSubscription | null = null;
+  private interrupted = false;
 
   // Preroll ring: stores the most recent PREROLL_SAMPLES of STT-ready
   // (gain-adjusted) audio. Rolls continuously so we always have ~400 ms of
@@ -196,55 +200,25 @@ export class RealSpeechRecognizer {
 
     await this.activateAudioSession(emit);
 
-    this.mic = createPcmLiveStream({ sampleRate: SAMPLE_RATE, channelCount: 1 });
+    if (Platform.OS === 'ios' && NativeModules.AudioSessionModule) {
+      const emitter = new NativeEventEmitter(NativeModules.AudioSessionModule);
+      this.interruptionSub = emitter.addListener('audioSessionInterrupted', this.onAudioInterrupted);
+      this.resumeSub = emitter.addListener('audioSessionResumed', this.onAudioResumed);
+    }
 
-    let hasSeenPcm = false;
-    this.unsubscribeData = this.mic.onData((rawSamples: Float32Array) => {
-      if (!hasSeenPcm) {
-        hasSeenPcm = true;
-        infoLog('[RealSTT] first PCM chunk', {
-          platform: Platform.OS,
-          size: rawSamples.length,
-          sttInputGain: STT_INPUT_GAIN,
-          startThreshold: SPEECH_START_THRESHOLD,
-          continueThreshold: SPEECH_CONTINUE_THRESHOLD,
-          noiseFloorSeed: NOISE_FLOOR_SEED,
-        });
-        emit({
-          type: 'pipeline_status',
-          session_id: sessionId,
-          status: 'processing',
-          timestamp_ms: Date.now(),
-          details: 'Microphone PCM received',
-        });
-      }
-      this.handlePcmChunk(rawSamples, emit);
-    });
-
-    this.unsubscribeError = this.mic.onError((message: string) => {
-      if (!this.sessionId) return;
-      emit({
-        type: 'pipeline_status',
-        session_id: this.sessionId,
-        status: 'error',
-        timestamp_ms: Date.now(),
-        details: message,
-      });
-    });
-
-    await this.mic.start();
-
-    emit({
-      type: 'pipeline_status',
-      session_id: sessionId,
-      status: 'capturing',
-      timestamp_ms: Date.now(),
-      details: 'Microphone active',
-    });
+    await this.startMicStream();
   }
 
   async stop(): Promise<void> {
     const emit = this.emitFn ?? (() => undefined);
+    if (this.interruptionSub) {
+      this.interruptionSub.remove();
+      this.interruptionSub = null;
+    }
+    if (this.resumeSub) {
+      this.resumeSub.remove();
+      this.resumeSub = null;
+    }
     // Drain any in-flight utterance via the same snapshot-and-reset path so
     // we don't lose the final sentence when the user stops.
     if (this.currentUtteranceId && this.sampleBuffer.length > 0 && this.sessionId) {
@@ -252,18 +226,7 @@ export class RealSpeechRecognizer {
       this.finalizeUtterance(Date.now(), emit);
     }
     // Stop the PCM feed before draining so no new items enter the chain.
-    if (this.unsubscribeData) {
-      this.unsubscribeData();
-      this.unsubscribeData = null;
-    }
-    if (this.unsubscribeError) {
-      this.unsubscribeError();
-      this.unsubscribeError = null;
-    }
-    if (this.mic) {
-      await this.mic.stop();
-      this.mic = null;
-    }
+    await this.stopMicStream();
     // Always drain the inference chain BEFORE destroying the engine. If we
     // destroy the engine while transcribeSamples() is running the native
     // promise may never resolve, permanently stalling the chain and blocking
@@ -294,6 +257,7 @@ export class RealSpeechRecognizer {
     this.nextUtteranceSeed = [];
     this.processingChain = Promise.resolve();
     this.inferenceActive = false;
+    this.interrupted = false;
     this.sessionId = null;
     this.emitFn = null;
   }
@@ -547,6 +511,89 @@ export class RealSpeechRecognizer {
       warnLog('[RealSTT] Failed to deactivate iOS audio session:', error);
     }
   }
+
+  private async startMicStream(): Promise<void> {
+    const sessionId = this.sessionId;
+    const emit = this.emitFn;
+    if (!sessionId || !emit) return;
+
+    this.mic = createPcmLiveStream({ sampleRate: SAMPLE_RATE, channelCount: 1 });
+
+    let hasSeenPcm = false;
+    this.unsubscribeData = this.mic.onData((rawSamples: Float32Array) => {
+      if (!hasSeenPcm) {
+        hasSeenPcm = true;
+        infoLog('[RealSTT] first PCM chunk', {
+          platform: Platform.OS,
+          size: rawSamples.length,
+          sttInputGain: STT_INPUT_GAIN,
+          startThreshold: SPEECH_START_THRESHOLD,
+          continueThreshold: SPEECH_CONTINUE_THRESHOLD,
+          noiseFloorSeed: NOISE_FLOOR_SEED,
+        });
+        emit({
+          type: 'pipeline_status',
+          session_id: sessionId,
+          status: 'processing',
+          timestamp_ms: Date.now(),
+          details: 'Microphone PCM received',
+        });
+      }
+      this.handlePcmChunk(rawSamples, emit);
+    });
+
+    this.unsubscribeError = this.mic.onError((message: string) => {
+      if (!this.sessionId) return;
+      emit({
+        type: 'pipeline_status',
+        session_id: this.sessionId,
+        status: 'error',
+        timestamp_ms: Date.now(),
+        details: message,
+      });
+    });
+
+    await this.mic.start();
+
+    emit({
+      type: 'pipeline_status',
+      session_id: sessionId,
+      status: 'capturing',
+      timestamp_ms: Date.now(),
+      details: 'Microphone active',
+    });
+  }
+
+  private async stopMicStream(): Promise<void> {
+    if (this.unsubscribeData) {
+      this.unsubscribeData();
+      this.unsubscribeData = null;
+    }
+    if (this.unsubscribeError) {
+      this.unsubscribeError();
+      this.unsubscribeError = null;
+    }
+    if (this.mic) {
+      await this.mic.stop();
+      this.mic = null;
+    }
+  }
+
+  private readonly onAudioInterrupted = (): void => {
+    infoLog('[RealSTT] audio session interrupted (phone call)');
+    this.interrupted = true;
+    this.resetUtterance();
+    this.stopMicStream().catch(() => {});
+  };
+
+  private readonly onAudioResumed = (): void => {
+    if (!this.sessionId || !this.emitFn) return;
+    infoLog('[RealSTT] audio session resumed, restarting mic');
+    this.interrupted = false;
+    this.startMicStream().catch((err) => {
+      warnLog('[RealSTT] mic restart failed after phone call resume:', err);
+    });
+  };
 
   private scheduleInference(fn: () => Promise<void>): void {
     this.inferenceActive = true;
