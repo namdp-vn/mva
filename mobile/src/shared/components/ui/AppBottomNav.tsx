@@ -27,39 +27,44 @@ export function AppBottomNav({activeTab}: AppBottomNavProps): React.JSX.Element 
   };
 
   return (
-    <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low']}]}>
-      {[
-        {key: 'meetings' as const, label: t('tabMeetings'), icon: 'history' as const},
-        {key: 'live' as const, label: t('tabLive'), icon: 'mic' as const},
-        {key: 'network' as const, label: t('tabNetwork'), icon: 'dns' as const},
-      ].map((tab) => {
-        const isActive = activeTab === tab.key;
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={[
-              styles.navTab,
-              {backgroundColor: isActive ? theme.colors.surface.container : 'transparent'},
-            ]}
-            onPress={() => handleTabPress(tab.key)}
-            activeOpacity={0.7}
-            accessibilityLabel={tab.label}>
-            <AppIcon
-              name={tab.icon}
-              size={20}
-              color={isActive ? theme.colors.primary : theme.colors.text.tertiary}
-            />
-            <Text
+    <>
+      <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low']}]}>
+        {[
+          {key: 'meetings' as const, label: t('tabMeetings'), icon: 'history' as const},
+          {key: 'live' as const, label: t('tabLive'), icon: 'mic' as const},
+          {key: 'network' as const, label: t('tabNetwork'), icon: 'dns' as const},
+        ].map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
               style={[
-                styles.navTabLabel,
-                {color: isActive ? theme.colors.primary : theme.colors.text.tertiary},
-              ]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+                styles.navTab,
+                {backgroundColor: isActive ? theme.colors.surface.container : 'transparent'},
+              ]}
+              onPress={() => handleTabPress(tab.key)}
+              activeOpacity={0.7}
+              accessibilityLabel={tab.label}>
+              <AppIcon
+                name={tab.icon}
+                size={20}
+                color={isActive ? theme.colors.primary : theme.colors.text.tertiary}
+              />
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  {color: isActive ? theme.colors.primary : theme.colors.text.tertiary},
+                ]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {Platform.OS === 'ios' && (
+        <View style={[styles.safeAreaFill, {backgroundColor: theme.colors.surface['container-low']}]} />
+      )}
+    </>
   );
 }
 
@@ -70,8 +75,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 10,
-    // iPhone X+ home indicator = 34pt; older iPhones = 0
-    paddingBottom: Platform.OS === 'ios' ? 44 : 10,
+    paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: 'rgba(71, 69, 84, 0.15)',
   },
@@ -90,6 +94,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+  },
+  safeAreaFill: {
+    height: 34,
   },
 });
 

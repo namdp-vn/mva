@@ -235,6 +235,7 @@ export function MeetingScreen(): React.JSX.Element {
   const isButtonDisabled = status === 'stopping';
 
   return (
+    <View style={[styles.outerContainer, {backgroundColor: theme.colors.background.primary}]}>
     <SafeAreaView
       style={[styles.container, {backgroundColor: theme.colors.background.primary}]}
       accessibilityLabel="Meeting screen"
@@ -435,16 +436,18 @@ export function MeetingScreen(): React.JSX.Element {
             </TouchableOpacity>
           )}
 
-          <View style={styles.bottomNavWrap}>
-            <AppBottomNav activeTab="live" />
-          </View>
         </View>
       )}
     </SafeAreaView>
+    {!isLiveWorkspace && <AppBottomNav activeTab="live" />}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -553,9 +556,6 @@ const styles = StyleSheet.create({
   },
   footerIdle: {
     paddingBottom: 0,
-  },
-  bottomNavWrap: {
-    marginHorizontal: -16,
   },
   actionRow: {
     flexDirection: 'row',
