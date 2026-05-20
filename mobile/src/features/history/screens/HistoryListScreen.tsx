@@ -18,8 +18,8 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
-  SafeAreaView,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -467,7 +467,7 @@ export function HistoryListScreen(): React.JSX.Element {
   const ItemSeparatorComponent = useCallback(() => <View style={styles.separator} />, []);
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
       {/* App Header */}
       <AppHeader onSettingsPress={handleSettingsPress} />
 

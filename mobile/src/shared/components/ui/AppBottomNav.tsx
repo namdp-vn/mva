@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -18,6 +19,7 @@ export function AppBottomNav({activeTab}: AppBottomNavProps): React.JSX.Element 
   const {theme} = useTheme();
   const {t} = useTranslation('meeting');
   const navigation = useNavigation<NavProp>();
+  const insets = useSafeAreaInsets();
 
   const handleTabPress = (tab: TabName) => {
     if (tab === activeTab) return;
@@ -27,7 +29,7 @@ export function AppBottomNav({activeTab}: AppBottomNavProps): React.JSX.Element 
   };
 
   return (
-    <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low']}]}>
+    <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low'], paddingBottom: insets.bottom + 10}]}>
       {[
         {key: 'meetings' as const, label: t('tabMeetings'), icon: 'history' as const},
         {key: 'live' as const, label: t('tabLive'), icon: 'mic' as const},
@@ -70,7 +72,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: 'rgba(71, 69, 84, 0.15)',
   },

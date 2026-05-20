@@ -15,6 +15,7 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {RootStackParamList} from '../../../app/navigation/router';
@@ -60,19 +61,23 @@ const BUNDLED_MODELS: ModelInfo[] = [
   },
 ];
 
-function getStatusMeta(status: ModelStatus, colors: ReturnType<typeof useTheme>['theme']['colors']) {
+function getStatusMeta(
+  status: ModelStatus,
+  colors: ReturnType<typeof useTheme>['theme']['colors'],
+  t: (key: string) => string,
+) {
   switch (status) {
     case 'cached-ready':
-      return {label: 'Ready', color: colors.secondary, icon: 'check-circle'};
+      return {label: t('modelStatusReady'), color: colors.secondary, icon: 'check-circle'};
     case 'downloading':
-      return {label: 'Preparing', color: colors.primary, icon: 'download'};
+      return {label: t('modelStatusPreparing'), color: colors.primary, icon: 'download'};
     case 'deleting':
-      return {label: 'Removing', color: colors.error, icon: 'delete'};
+      return {label: t('modelStatusRemoving'), color: colors.error, icon: 'delete'};
     case 'invalid':
-      return {label: 'Invalid', color: colors.error, icon: 'error'};
+      return {label: t('modelStatusInvalid'), color: colors.error, icon: 'error'};
     case 'missing':
     default:
-      return {label: 'Missing', color: colors.text.tertiary, icon: 'cloud-off'};
+      return {label: t('modelStatusMissing'), color: colors.text.tertiary, icon: 'cloud-off'};
   }
 }
 
@@ -88,6 +93,8 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
     setModelDeleting,
     setModelDeleted,
   } = useBootstrapStore();
+
+  const {t} = useTranslation('settings');
 
   const [busyModelId, setBusyModelId] = useState<string | null>(null);
   const [assetAvailability, setAssetAvailability] = useState<Record<string, boolean>>({});
@@ -140,7 +147,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Bundled model preparation failed.';
       setModelError(message);
-      Alert.alert('Preparation failed', message);
+      Alert.alert(t('modelPrepareFailTitle'), message);
     } finally {
       setBusyModelId(null);
     }
@@ -148,12 +155,12 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
 
   const handleRemove = useCallback((model: ModelInfo) => {
     Alert.alert(
-      'Remove bundled model',
-      `Remove ${model.name} from local prepared storage? Bundled app resources remain available for preparing again later.`,
+      t('modelRemoveTitle'),
+      t('modelRemoveMessage', {name: model.name}),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('modelRemoveCancel'), style: 'cancel'},
         {
-          text: 'Remove',
+          text: t('modelRemoveConfirm'),
           style: 'destructive',
           onPress: async () => {
             const isDiarization = model.id === 'speaker-diarization';
@@ -171,7 +178,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
               setAssetAvailability((prev) => ({...prev, [model.id]: false}));
             } catch (error) {
               const message = error instanceof Error ? error.message : 'Unable to remove local model files.';
-              Alert.alert('Remove failed', message);
+              Alert.alert(t('modelRemoveFailTitle'), message);
               if (!isDiarization) {
                 setModelReady(model);
               }
@@ -182,7 +189,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
         },
       ],
     );
-  }, [setModelDeleted, setModelDeleting, setModelReady]);
+  }, [setModelDeleted, setModelDeleting, setModelReady, t]);
 
   const usedStorageMB = useMemo(
     () => BUNDLED_MODELS.reduce((sum, model) => sum + (assetAvailability[model.id] ? model.diskFootprintMB : 0), 0),
@@ -197,7 +204,7 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
       ? ({status: diarizationPrepared ? 'cached-ready' : 'missing'} as {status: ModelStatus})
       : modelState;
     const prepared = assetAvailability[model.id] || state.status === 'cached-ready';
-    const statusMeta = getStatusMeta(state.status, theme.colors);
+    const statusMeta = getStatusMeta(state.status, theme.colors, t);
     const canManage = busyModelId == null;
 
     return (
@@ -217,16 +224,16 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
         </View>
 
         <Text style={[styles.cardSubtext, {color: theme.colors.text.tertiary}]}>
-          {model.id === 'sensevoice-small' ? 'Bundled speech-to-text model' : 'Bundled offline translation model'}
+          {model.id === 'sensevoice-small' ? t('modelSensevoiceDesc') : t('modelDiarizationDesc')}
         </Text>
 
         <View style={styles.statsRow}>
           <View>
-            <Text style={[styles.statLabel, {color: theme.colors.text.tertiary}]}>Size</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.text.tertiary}]}>{t('modelStatSize')}</Text>
             <Text style={[styles.statValue, {color: theme.colors.text.primary}]}>{model.diskFootprintMB} MB</Text>
           </View>
           <View>
-            <Text style={[styles.statLabel, {color: theme.colors.text.tertiary}]}>Speed</Text>
+            <Text style={[styles.statLabel, {color: theme.colors.text.tertiary}]}>{t('modelStatSpeed')}</Text>
             <Text style={[styles.statValue, {color: theme.colors.secondary}]}>RTF {model.inferenceSpeedRTF.toFixed(2)}</Text>
           </View>
         </View>
@@ -240,16 +247,16 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
         </View>
 
         <View style={styles.footerRow}>
-          <Text style={[styles.optimizedText, {color: theme.colors.text.tertiary}]}>Optimized for {model.isOptimizedFor.join(', ')}</Text>
+          <Text style={[styles.optimizedText, {color: theme.colors.text.tertiary}]}>{t('modelOptimizedFor', {devices: model.isOptimizedFor.join(', ')})}</Text>
           {prepared ? (
             <Pressable onPress={() => handleRemove(model)} disabled={!canManage} style={styles.actionButton}>
               <AppIcon name="delete" size={16} color={theme.colors.error} />
-              <Text style={[styles.actionDanger, {color: theme.colors.error}]}>Remove</Text>
+              <Text style={[styles.actionDanger, {color: theme.colors.error}]}>{t('modelActionRemove')}</Text>
             </Pressable>
           ) : (
             <Pressable onPress={() => handlePrepare(model)} disabled={!canManage} style={styles.actionButton}>
               <AppIcon name="download" size={16} color={theme.colors.primary} />
-              <Text style={[styles.actionPrimary, {color: theme.colors.primary}]}>{busyModelId === model.id ? 'Preparing…' : 'Prepare'}</Text>
+              <Text style={[styles.actionPrimary, {color: theme.colors.primary}]}>{busyModelId === model.id ? t('modelActionPreparing') : t('modelActionPrepare')}</Text>
             </Pressable>
           )}
         </View>
@@ -263,28 +270,28 @@ export function ModelRepositoryScreen({onNavigateBack}: ModelRepositoryScreenPro
         <Pressable onPress={onNavigateBack ?? (() => navigation.goBack())} style={styles.backButton}>
           <AppIcon name="back" size={24} color={theme.colors.text.primary} />
         </Pressable>
-        <Text style={[styles.headerTitle, {color: theme.colors.text.primary}]}>AI Models</Text>
+        <Text style={[styles.headerTitle, {color: theme.colors.text.primary}]}>{t('modelRepositoryTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.titleSection}>
-          <Text style={[styles.eyebrow, {color: theme.colors.text.tertiary}]}>Bundled Models</Text>
-          <Text style={[styles.title, {color: theme.colors.text.primary}]}>On-device AI</Text>
-          <Text style={[styles.subtitle, {color: theme.colors.text.tertiary}]}>Models ship with the app and are prepared locally when needed. No network download. No AI analysis lane.</Text>
+          <Text style={[styles.eyebrow, {color: theme.colors.text.tertiary}]}>{t('bundledModelsEyebrow')}</Text>
+          <Text style={[styles.title, {color: theme.colors.text.primary}]}>{t('onDeviceAiTitle')}</Text>
+          <Text style={[styles.subtitle, {color: theme.colors.text.tertiary}]}>{t('onDeviceAiSubtitle')}</Text>
         </View>
 
         <View style={styles.cardList}>{BUNDLED_MODELS.map(renderCard)}</View>
 
         <View style={[styles.storageCard, {backgroundColor: theme.colors.surface.primary, borderColor: theme.colors.border.subtle}]}> 
           <View style={styles.storageHeader}>
-            <Text style={[styles.storageTitle, {color: theme.colors.text.primary}]}>On-device storage</Text>
+            <Text style={[styles.storageTitle, {color: theme.colors.text.primary}]}>{t('modelStorageTitle')}</Text>
             <Text style={[styles.storageValuePrimary, {color: theme.colors.primary}]}>{usedStorageMB} MB / {totalStorageMB} MB</Text>
           </View>
-          <View style={[styles.progressTrack, {backgroundColor: theme.colors.surface.secondary}]}> 
+          <View style={[styles.progressTrack, {backgroundColor: theme.colors.surface.secondary}]}>
             <View style={[styles.progressFill, {backgroundColor: theme.colors.primary, width: `${Math.min(100, Math.round((usedStorageMB / totalStorageMB) * 100))}%`}]} />
           </View>
-          <Text style={[styles.storageBody, {color: theme.colors.text.tertiary}]}>Local model preparation preserves absolute privacy: transcript, translation, and model inference stay inside the app sandbox.</Text>
+          <Text style={[styles.storageBody, {color: theme.colors.text.tertiary}]}>{t('modelStorageBody')}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
