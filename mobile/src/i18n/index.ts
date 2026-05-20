@@ -18,25 +18,33 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 };
 
 export function detectDeviceLanguage(): AppLanguage {
+  // 1. Intl.DateTimeFormat — reads ICU locale which iOS updates via
+  //    NSCurrentLocaleDidChangeNotification, even without app restart.
   try {
-    // getLocales() (RN 0.73+) reads NSLocale.preferredLanguages on iOS —
-    // the user's actual device preference, unaffected by CFBundleLocalizations.
-    // Type is not declared in all RN type packages so we use a dynamic require.
+    if (typeof Intl !== 'undefined') {
+      const intlLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+      if (intlLocale) {
+        const lang = intlLocale.split(/[-_]/)[0] as AppLanguage;
+        if (SUPPORTED_LANGUAGES.includes(lang)) {
+          return lang;
+        }
+      }
+    }
+  } catch {}
+
+  // 2. getLocales() (RN 0.73+) — reads NSLocale.preferredLanguages per-call.
+  try {
     type Locale = {languageCode: string; countryCode?: string};
     const rn = require('react-native') as {getLocales?: () => Locale[]};
     const locales = rn.getLocales?.();
-    console.log('[i18n] getLocales result:', JSON.stringify(locales));
     if (locales && locales.length > 0) {
       const lang = locales[0].languageCode as AppLanguage;
-      console.log('[i18n] detected language:', lang);
       if (SUPPORTED_LANGUAGES.includes(lang)) {
         return lang;
       }
     }
-  } catch (e) {
-    console.log('[i18n] detectDeviceLanguage error:', e);
-  }
-  console.log('[i18n] falling back to vi');
+  } catch {}
+
   return 'vi';
 }
 
