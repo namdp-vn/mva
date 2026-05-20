@@ -14,10 +14,10 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  SafeAreaView,
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -259,7 +259,8 @@ export function SettingsScreen(): React.JSX.Element {
     : {icon: 'error', color: theme.colors.error, label: t('modelStatusUnavailable')};
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
+    <View style={[styles.outerContainer, {backgroundColor: theme.colors.background.primary}]}>
+      <SafeAreaView style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
       {/* Header */}
       <View style={[styles.header, {backgroundColor: theme.colors.surface.primary}]}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backButton}>
@@ -772,12 +773,16 @@ export function SettingsScreen(): React.JSX.Element {
         </TouchableOpacity>
       </Modal>
 
+      </SafeAreaView>
       <AppBottomNav activeTab="network" />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

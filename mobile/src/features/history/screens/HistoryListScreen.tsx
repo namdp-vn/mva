@@ -18,8 +18,8 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  SafeAreaView,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
@@ -467,50 +467,52 @@ export function HistoryListScreen(): React.JSX.Element {
   const ItemSeparatorComponent = useCallback(() => <View style={styles.separator} />, []);
 
   return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
-      {/* App Header */}
-      <AppHeader onSettingsPress={handleSettingsPress} />
+    <View style={[styles.outerContainer, {backgroundColor: theme.colors.background.primary}]}>
+      <SafeAreaView style={[styles.container, {backgroundColor: theme.colors.background.primary}]}>
+        {/* App Header */}
+        <AppHeader onSettingsPress={handleSettingsPress} />
 
-      {/* Content */}
-      <View style={styles.content}>
-        {/* Section header */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text.primary}]}>
-            {t('sectionSessions')}
-          </Text>
-          <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>
-            {t('sectionSessionsSubtitle')}
-          </Text>
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Section header */}
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, {color: theme.colors.text.primary}]}>
+              {t('sectionSessions')}
+            </Text>
+            <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>
+              {t('sectionSessionsSubtitle')}
+            </Text>
+          </View>
+
+          {/* Session list */}
+          <FlatList
+            data={sessions}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={[
+              styles.listContent,
+              sessions.length === 0 && styles.listContentEmpty,
+            ]}
+            ItemSeparatorComponent={ItemSeparatorComponent}
+            ListEmptyComponent={ListEmptyComponent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                tintColor={theme.colors.primary}
+              />
+            }
+          />
         </View>
 
-        {/* Session list */}
-        <FlatList
-          data={sessions}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={[
-            styles.listContent,
-            sessions.length === 0 && styles.listContentEmpty,
-          ]}
-          ItemSeparatorComponent={ItemSeparatorComponent}
-          ListEmptyComponent={ListEmptyComponent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={theme.colors.primary}
-            />
-          }
-        />
-      </View>
+        {/* FAB — New Meeting */}
+        <FABNewMeeting onPress={handleNewMeeting} />
+      </SafeAreaView>
 
-      {/* FAB — New Meeting */}
-      <FABNewMeeting onPress={handleNewMeeting} />
-
-      {/* Bottom Nav */}
+      {/* Bottom Nav sits outside SafeAreaView so it fills to screen edge */}
       <AppBottomNav activeTab="meetings" />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -519,6 +521,9 @@ export function HistoryListScreen(): React.JSX.Element {
 // =============================================================================
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
