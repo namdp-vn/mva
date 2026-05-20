@@ -1,24 +1,34 @@
-/**
- * Vibevoice App Entry Point
- * React Native TypeScript application shell
- */
-
 import React, {useEffect} from 'react';
-import {Appearance, StatusBar} from 'react-native';
+import {AppState, Appearance, StatusBar} from 'react-native';
 import {RootNavigator} from './navigation/RootNavigator';
-import {initI18n} from '../i18n';
+import {detectDeviceLanguage, initI18n} from '../i18n';
 import {useSettingsStore} from '../shared/store/settingsStore';
 
 export function App(): React.JSX.Element {
   const isLight = Appearance.getColorScheme() === 'light';
 
-  // After AsyncStorage hydration, apply the persisted app language.
   useEffect(() => {
-    const apply = (state: {appLanguage: string}) => initI18n(state.appLanguage as any);
+    // Apply persisted language after AsyncStorage hydration.
+    const applyStored = (state: {appLanguage: string}) => initI18n(state.appLanguage as any);
     if (useSettingsStore.persist.hasHydrated()) {
-      apply(useSettingsStore.getState());
+      applyStored(useSettingsStore.getState());
     }
-    return useSettingsStore.persist.onFinishHydration(apply);
+    const unsubHydration = useSettingsStore.persist.onFinishHydration(applyStored);
+
+    // When app comes back to foreground, re-detect device language if user hasn't set one manually.
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        const {appLanguageIsAuto, setAppLanguageAuto} = useSettingsStore.getState();
+        if (appLanguageIsAuto) {
+          setAppLanguageAuto(detectDeviceLanguage());
+        }
+      }
+    });
+
+    return () => {
+      unsubHydration();
+      appStateSub.remove();
+    };
   }, []);
 
   return (

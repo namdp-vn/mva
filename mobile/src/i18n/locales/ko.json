@@ -68,7 +68,10 @@
     "statusBarPauseLabel": "일시 정지",
     "statusBarStopLabel": "종료 및 저장",
     "statusBarOnDevice": "기기 내",
-    "statusBarConnected": "연결됨"
+    "statusBarConnected": "연결됨",
+    "tabMeetings": "회의",
+    "tabLive": "라이브",
+    "tabNetwork": "네트워크"
   },
   "settings": {
     "title": "설정",

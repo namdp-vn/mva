@@ -74,6 +74,9 @@ interface SettingsState {
   /** App UI language — auto-detected from device locale on first run. */
   appLanguage: AppLanguage;
   setAppLanguage: (lang: AppLanguage) => void;
+  /** True when app should follow device language automatically (user hasn't picked manually). */
+  appLanguageIsAuto: boolean;
+  setAppLanguageAuto: (lang: AppLanguage) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -92,13 +95,18 @@ export const useSettingsStore = create<SettingsState>()(
       setSttEngine: (engine) => set({sttEngine: engine}),
       appLanguage: detectDeviceLanguage(),
       setAppLanguage: (lang) => {
+        set({appLanguage: lang, appLanguageIsAuto: false});
+        changeAppLanguage(lang);
+      },
+      appLanguageIsAuto: true,
+      setAppLanguageAuto: (lang) => {
         set({appLanguage: lang});
         changeAppLanguage(lang);
       },
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -107,6 +115,7 @@ export const useSettingsStore = create<SettingsState>()(
         diarizationThreshold: state.diarizationThreshold,
         sttEngine: state.sttEngine,
         appLanguage: state.appLanguage,
+        appLanguageIsAuto: state.appLanguageIsAuto,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -125,9 +134,8 @@ export const useSettingsStore = create<SettingsState>()(
           targetLanguage: state.targetLanguage ?? DEFAULT_TARGET_LANGUAGE,
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
-          // If upgrading from a version before appLanguage existed (< 5), always use device language.
-          // If already on v5+, keep the stored preference (user may have changed it manually).
           appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
+          appLanguageIsAuto: version < 6 ? true : ((state as SettingsState).appLanguageIsAuto ?? true),
         } as SettingsState;
       },
     }
@@ -140,3 +148,4 @@ export const useTargetLanguage = () => useSettingsStore((state) => state.targetL
 export const useDiarizationThreshold = () => useSettingsStore((state) => state.diarizationThreshold);
 export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
 export const useAppLanguage = () => useSettingsStore((state) => state.appLanguage);
+export const useAppLanguageIsAuto = () => useSettingsStore((state) => state.appLanguageIsAuto);

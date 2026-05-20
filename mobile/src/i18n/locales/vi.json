@@ -68,7 +68,10 @@
     "statusBarPauseLabel": "Tạm dừng",
     "statusBarStopLabel": "Dừng và lưu",
     "statusBarOnDevice": "Trên thiết bị",
-    "statusBarConnected": "Đã kết nối"
+    "statusBarConnected": "Đã kết nối",
+    "tabMeetings": "Cuộc họp",
+    "tabLive": "Trực tiếp",
+    "tabNetwork": "Mạng"
   },
   "settings": {
     "title": "Cài đặt",

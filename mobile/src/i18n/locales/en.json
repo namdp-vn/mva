@@ -68,7 +68,10 @@
     "statusBarPauseLabel": "Pause",
     "statusBarStopLabel": "Stop & Save",
     "statusBarOnDevice": "On Device",
-    "statusBarConnected": "Connected"
+    "statusBarConnected": "Connected",
+    "tabMeetings": "Meetings",
+    "tabLive": "Live",
+    "tabNetwork": "Network"
   },
   "settings": {
     "title": "Settings",

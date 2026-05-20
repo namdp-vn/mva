@@ -68,7 +68,10 @@
     "statusBarPauseLabel": "暂停",
     "statusBarStopLabel": "结束并保存",
     "statusBarOnDevice": "设备端",
-    "statusBarConnected": "已连接"
+    "statusBarConnected": "已连接",
+    "tabMeetings": "会议",
+    "tabLive": "直播",
+    "tabNetwork": "网络"
   },
   "settings": {
     "title": "设置",

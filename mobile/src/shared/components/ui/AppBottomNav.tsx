@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {RootStackParamList} from '../../../app/navigation/router';
@@ -15,6 +16,7 @@ interface AppBottomNavProps {
 
 export function AppBottomNav({activeTab}: AppBottomNavProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const navigation = useNavigation<NavProp>();
 
   const handleTabPress = (tab: TabName) => {
@@ -25,11 +27,11 @@ export function AppBottomNav({activeTab}: AppBottomNavProps): React.JSX.Element 
   };
 
   return (
-    <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low']}] }>
+    <View style={[styles.bottomNav, {backgroundColor: theme.colors.surface['container-low']}]}>
       {[
-        {key: 'meetings' as const, label: 'Meetings', icon: 'history' as const},
-        {key: 'live' as const, label: 'Live', icon: 'mic' as const},
-        {key: 'network' as const, label: 'Network', icon: 'dns' as const},
+        {key: 'meetings' as const, label: t('tabMeetings'), icon: 'history' as const},
+        {key: 'live' as const, label: t('tabLive'), icon: 'mic' as const},
+        {key: 'network' as const, label: t('tabNetwork'), icon: 'dns' as const},
       ].map((tab) => {
         const isActive = activeTab === tab.key;
         return (

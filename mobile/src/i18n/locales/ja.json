@@ -68,7 +68,10 @@
     "statusBarPauseLabel": "一時停止",
     "statusBarStopLabel": "終了して保存",
     "statusBarOnDevice": "デバイス上",
-    "statusBarConnected": "接続済み"
+    "statusBarConnected": "接続済み",
+    "tabMeetings": "会議",
+    "tabLive": "ライブ",
+    "tabNetwork": "ネットワーク"
   },
   "settings": {
     "title": "設定",
