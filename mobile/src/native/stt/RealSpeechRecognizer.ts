@@ -579,6 +579,18 @@ export class RealSpeechRecognizer {
     }
   }
 
+  async pause(): Promise<void> {
+    this.interrupted = true;
+    this.resetUtterance();
+    await this.stopMicStream();
+  }
+
+  async resume(): Promise<void> {
+    if (!this.sessionId || !this.emitFn) return;
+    this.interrupted = false;
+    await this.startMicStream();
+  }
+
   private readonly onAudioInterrupted = (): void => {
     infoLog('[RealSTT] audio session interrupted (phone call)');
     this.interrupted = true;

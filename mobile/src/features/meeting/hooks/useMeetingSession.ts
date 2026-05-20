@@ -52,6 +52,8 @@ export interface UseMeetingSessionReturn {
   currentUtteranceId: UtteranceId | null;
   startMeeting: (sourceLanguage?: SourceLanguage, targetLanguage?: TargetLanguage) => Promise<void>;
   stopMeeting: () => Promise<{sessionId: string | null; fallbackSession: SessionData | null; fallbackUtterances: UtteranceData[]}>;
+  pauseMeeting: () => Promise<void>;
+  resumeMeeting: () => Promise<void>;
   updatePartialTranscript: (utteranceId: UtteranceId, text: string, language: SourceLanguage, revision: number) => void;
   finalizePartialTranscript: (utteranceId: UtteranceId, text: string, language: SourceLanguage, confidence: number) => void;
   pipelineStatus: string;
@@ -1199,6 +1201,20 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     [IOS_DEBUG_TRANSLATION_SAFE_MODE, LIVE_SPEAKER_ASSIGNMENT_ENABLED, handleIncomingPipelineEvent, store]
   );
 
+  const pauseMeeting = useCallback(async () => {
+    const recognizer = realRecognizerRef.current;
+    if (!recognizer) return;
+    store.pauseSession();
+    await recognizer.pause();
+  }, [store]);
+
+  const resumeMeeting = useCallback(async () => {
+    const recognizer = realRecognizerRef.current;
+    if (!recognizer) return;
+    await recognizer.resume();
+    store.resumeSession();
+  }, [store]);
+
   const stopMeeting = useCallback(async () => {
     console.warn('[useMeetingSession] stopMeeting CALLED');
     const persistence = getPersistenceService();
@@ -1341,7 +1357,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
   }, [applyPostSessionDiarization, processDeferredTranslationsAfterMeeting, store]);
 
   return {
-    isActive: session.status === 'recording' || session.status === 'stopping',
+    isActive: session.status === 'recording' || session.status === 'paused' || session.status === 'stopping',
     isRecording: session.status === 'recording',
     sessionId: session.id,
     session,
@@ -1352,6 +1368,8 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     currentUtteranceId: session.currentUtteranceId,
     startMeeting,
     stopMeeting,
+    pauseMeeting,
+    resumeMeeting,
     updatePartialTranscript: store.updatePartialTranscript,
     finalizePartialTranscript,
     pipelineStatus: store.pipelineStatus,

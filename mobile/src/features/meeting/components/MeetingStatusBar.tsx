@@ -63,10 +63,11 @@ function getLanguageBadgeStyle(
 
 interface PulsingDotProps {
   isRecording: boolean;
+  isPaused: boolean;
   reducedMotion: boolean;
 }
 
-function PulsingDot({isRecording, reducedMotion}: PulsingDotProps): React.JSX.Element {
+function PulsingDot({isRecording, isPaused, reducedMotion}: PulsingDotProps): React.JSX.Element {
   const {theme} = useTheme();
   const pulseAnim = useRef(new Animated.Value(0.6)).current;
 
@@ -78,46 +79,25 @@ function PulsingDot({isRecording, reducedMotion}: PulsingDotProps): React.JSX.El
 
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.6,
-          duration: 500,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, {toValue: 1, duration: 500, useNativeDriver: true}),
+        Animated.timing(pulseAnim, {toValue: 0.6, duration: 500, useNativeDriver: true}),
       ]),
     );
-
     pulse.start();
-
-    return () => {
-      pulse.stop();
-      pulseAnim.setValue(0.6);
-    };
+    return () => { pulse.stop(); pulseAnim.setValue(0.6); };
   }, [isRecording, reducedMotion, pulseAnim]);
 
-  if (!isRecording) {
-    return (
-      <View
-        style={[
-          styles.recordingIndicator,
-          {backgroundColor: theme.colors.text.tertiary},
-        ]}
-      />
-    );
-  }
+  const dotColor = isRecording
+    ? theme.colors.error
+    : isPaused
+      ? '#F59E0B'
+      : theme.colors.text.tertiary;
 
   return (
     <Animated.View
       style={[
         styles.recordingIndicator,
-        {
-          backgroundColor: theme.colors.error,
-          opacity: reducedMotion ? 1 : pulseAnim,
-        },
+        {backgroundColor: dotColor, opacity: isRecording && !reducedMotion ? pulseAnim : 1},
       ]}
     />
   );
@@ -170,6 +150,7 @@ export interface MeetingStatusBarProps {
   startedAt: number | null;
   latencyMs?: number | null;
   onStopMeeting?: () => void;
+  onPauseMeeting?: () => void;
   pipelineStatus?: string;
   pipelineError?: string | null;
   currentLanguage?: string;
@@ -183,6 +164,7 @@ export function MeetingStatusBar({
   startedAt,
   latencyMs,
   onStopMeeting,
+  onPauseMeeting,
   pipelineStatus,
   pipelineError,
   currentLanguage = 'EN',
@@ -207,9 +189,9 @@ export function MeetingStatusBar({
     checkReducedMotion();
   }, []);
 
-  // Timer update
+  // Timer update — tiếp tục đếm khi pause (thời gian tổng session)
   useEffect(() => {
-    if (sessionStatus === 'recording' && startedAt) {
+    if ((sessionStatus === 'recording' || sessionStatus === 'paused') && startedAt) {
       const updateTime = () => setElapsedTime(formatTime(startedAt));
       updateTime();
       intervalRef.current = setInterval(updateTime, 1000);
@@ -221,12 +203,15 @@ export function MeetingStatusBar({
   }, [sessionStatus, startedAt]);
 
   const isRecording = sessionStatus === 'recording';
-  const canStop = isRecording && onStopMeeting;
-  const isCompactLive = isRecording;
+  const isPaused = sessionStatus === 'paused';
+  const canStop = (isRecording || isPaused) && onStopMeeting;
+  const canPause = isRecording && onPauseMeeting;
+  const isCompactLive = isRecording || isPaused;
 
   const getStatusText = (): string => {
     if (sessionStatus === 'idle') return 'Ready';
     if (sessionStatus === 'recording') return 'Recording';
+    if (sessionStatus === 'paused') return 'Paused';
     if (sessionStatus === 'stopping') return 'Stopping';
     if (sessionStatus === 'complete') return 'Complete';
     if (sessionStatus === 'interrupted') return 'Interrupted';
@@ -243,11 +228,11 @@ export function MeetingStatusBar({
       <View style={[styles.topRow, isCompactLive && styles.topRowCompact]}>
         {/* Left: Pulsing dot + status + timer */}
         <View style={[styles.leftSection, isCompactLive && styles.leftSectionCompact]}>
-          <PulsingDot isRecording={isRecording} reducedMotion={reducedMotion} />
+          <PulsingDot isRecording={isRecording} isPaused={isPaused} reducedMotion={reducedMotion} />
           <Text
             style={[
               styles.recordingLabel,
-              {color: isRecording ? theme.colors.error : theme.colors.text.secondary},
+              {color: isRecording ? theme.colors.error : isPaused ? '#F59E0B' : theme.colors.text.secondary},
             ]}>
             {getStatusText()}
           </Text>
@@ -258,17 +243,27 @@ export function MeetingStatusBar({
             ]}>
             {elapsedTime}
           </Text>
-          {isRecording && <LanguageBadge language={currentLanguage} />}
+          {(isRecording || isPaused) && <LanguageBadge language={currentLanguage} />}
         </View>
 
-        {/* Right: Connectivity + stop button */}
+        {/* Right: Connectivity + pause + stop buttons */}
         <View style={styles.rightSection}>
           <ConnectivityIndicator connectivity={connectivity} />
+          {canPause && (
+            <TouchableOpacity
+              style={[styles.iconButton, {backgroundColor: '#F59E0B22'}]}
+              onPress={onPauseMeeting}
+              activeOpacity={0.8}
+              accessibilityLabel="Tạm dừng">
+              <AppIcon name="pause" size={12} color="#F59E0B" />
+            </TouchableOpacity>
+          )}
           {canStop && (
             <TouchableOpacity
-              style={[styles.stopButton, {backgroundColor: theme.colors.error}]}
+              style={[styles.iconButton, {backgroundColor: theme.colors.error}]}
               onPress={onStopMeeting}
-              activeOpacity={0.8}>
+              activeOpacity={0.8}
+              accessibilityLabel="Dừng và lưu">
               <AppIcon name="stop" size={12} color="#FFFFFF" />
             </TouchableOpacity>
           )}
@@ -406,7 +401,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.3,
   },
-  stopButton: {
+  iconButton: {
     width: 30,
     height: 30,
     borderRadius: 15,

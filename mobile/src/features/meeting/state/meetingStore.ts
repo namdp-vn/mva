@@ -3,7 +3,7 @@ import {SessionId, UtteranceId, SourceLanguage, TargetLanguage} from '../../../s
 import {debugLog} from '../../../shared/utils/logger';
 import type {PipelineStatus, MeetingPipelineEvent} from '../../../shared/types/meeting';
 
-export type SessionStatus = 'idle' | 'recording' | 'stopping' | 'complete' | 'interrupted';
+export type SessionStatus = 'idle' | 'recording' | 'paused' | 'stopping' | 'complete' | 'interrupted';
 export type ConnectivityStatus = 'online';
 
 export interface TranscriptEntry {
@@ -79,6 +79,8 @@ interface MeetingStore {
   pipelineStatus: PipelineStatus;
   pipelineError: string | null;
   startSession: (sourceLanguage: SourceLanguage, targetLanguage: TargetLanguage) => SessionId;
+  pauseSession: () => void;
+  resumeSession: () => void;
   /** Immediately transition recording→stopping for instant UI feedback. */
   beginStop: () => void;
   stopSession: () => void;
@@ -132,16 +134,30 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     return id;
   },
 
-  beginStop: () => {
+  pauseSession: () => {
     const {session} = get();
     if (session.id && session.status === 'recording') {
+      set({session: {...session, status: 'paused'}});
+    }
+  },
+
+  resumeSession: () => {
+    const {session} = get();
+    if (session.id && session.status === 'paused') {
+      set({session: {...session, status: 'recording'}});
+    }
+  },
+
+  beginStop: () => {
+    const {session} = get();
+    if (session.id && (session.status === 'recording' || session.status === 'paused')) {
       set({session: {...session, status: 'stopping'}});
     }
   },
 
   stopSession: () => {
     const {session} = get();
-    if (session.id && (session.status === 'recording' || session.status === 'stopping')) {
+    if (session.id && (session.status === 'recording' || session.status === 'paused' || session.status === 'stopping')) {
       const stoppingSessionId = session.id;
       set({session: {...session, status: 'stopping'}});
       setTimeout(() => {

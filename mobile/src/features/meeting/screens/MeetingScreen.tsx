@@ -73,12 +73,16 @@ export function MeetingScreen(): React.JSX.Element {
     isRecording,
     startMeeting,
     stopMeeting,
+    pauseMeeting,
+    resumeMeeting,
     pipelineStatus,
     pipelineError,
     isOffline,
     isDegraded,
     degradedMessage,
   } = useMeetingSession();
+
+  const isPaused = status === 'paused';
 
   const latestDetectedLanguage =
     transcript.length > 0
@@ -89,12 +93,13 @@ export function MeetingScreen(): React.JSX.Element {
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
   const [isStopping, setIsStopping] = useState(false);
 
+  // Giữ màn hình sáng khi session đang active (recording hoặc paused)
   useEffect(() => {
-    if (isRecording) {
+    if (isActive) {
       activateKeepAwake().catch(() => {});
       return () => { deactivateKeepAwake().catch(() => {}); };
     }
-  }, [isRecording]);
+  }, [isActive]);
 
   useEffect(() => {
     const modelsReady = modelState.status === 'cached-ready';
@@ -119,6 +124,14 @@ export function MeetingScreen(): React.JSX.Element {
     await startMeeting('en', targetLanguage);
     console.warn('[MeetingScreen] handleStartMeeting: startMeeting resolved');
   }, [startMeeting, targetLanguage]);
+
+  const handlePauseMeeting = useCallback(async () => {
+    await pauseMeeting();
+  }, [pauseMeeting]);
+
+  const handleResumeMeeting = useCallback(async () => {
+    await resumeMeeting();
+  }, [resumeMeeting]);
 
   const handleStopMeeting = useCallback(async () => {
     const confirmed = await new Promise<boolean>(resolve => {
@@ -162,7 +175,8 @@ export function MeetingScreen(): React.JSX.Element {
   const sttReady = modelState.status === 'cached-ready';
   const translatorInstalled = translatorModelState.status === 'cached-ready';
   const canStartCapture = sttReady && prewarmState.status !== 'failed';
-  const isLiveWorkspace = isActive || status === 'stopping';
+  // Khi paused: footer hiện lại để show nút Resume
+  const isLiveWorkspace = (isActive && !isPaused) || status === 'stopping';
   const showTranscriptLane = laneFocusMode !== 'translation';
   const showTranslationLane = laneFocusMode !== 'original';
   const transcriptLaneFlex = laneFocusMode === 'split' ? 1 : 1;
@@ -297,6 +311,7 @@ export function MeetingScreen(): React.JSX.Element {
           startedAt={session.startedAt}
           latencyMs={latencyMs}
           onStopMeeting={handleStopMeeting}
+          onPauseMeeting={handlePauseMeeting}
           pipelineStatus={pipelineStatus}
           pipelineError={pipelineError}
           currentLanguage={latestDetectedLanguage || 'AUTO'}
@@ -383,37 +398,49 @@ export function MeetingScreen(): React.JSX.Element {
             styles.footerIdle,
             {backgroundColor: theme.colors.surface.primary},
           ]}>
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              {
-                backgroundColor: isActive
-                  ? theme.colors.error
-                  : theme.colors.primary,
-              },
-            ]}
-            onPress={handlePrimaryButtonPress}
-            activeOpacity={0.85}
-            disabled={isButtonDisabled}
-            accessibilityLabel={isActive ? 'Stop meeting' : 'Start meeting'}
-            accessibilityHint={
-              isActive
-                ? 'Ends the current recording session'
-                : canStartCapture
-                  ? 'Begins a new recording session'
-                  : 'Navigate to settings to configure models'
-            }>
-            <View style={styles.primaryButtonContent}>
-              <AppIcon
-                name={isActive ? 'stop' : 'mic'}
-                size={20}
-                color={theme.colors.text.primary}
-              />
-              <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}> 
-                {getButtonLabel()}
-              </Text>
+
+          {/* Khi paused: Resume (lớn) + Stop (nhỏ) */}
+          {isPaused ? (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.resumeButton, {backgroundColor: '#16A34A'}]}
+                onPress={handleResumeMeeting}
+                activeOpacity={0.85}
+                accessibilityLabel="Tiếp tục ghi âm">
+                <AppIcon name="mic" size={18} color="#FFFFFF" />
+                <Text style={[styles.primaryButtonText, {color: '#FFFFFF'}]}>Tiếp tục</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.stopCompactButton, {backgroundColor: theme.colors.error}]}
+                onPress={handleStopMeeting}
+                disabled={isButtonDisabled}
+                activeOpacity={0.85}
+                accessibilityLabel="Dừng và lưu">
+                <AppIcon name="stop" size={16} color="#FFFFFF" />
+                <Text style={[styles.secondaryButtonText, {color: '#FFFFFF'}]}>Dừng & Lưu</Text>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          ) : (
+            /* Khi idle: nút Start full-width */
+            <TouchableOpacity
+              style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
+              onPress={handlePrimaryButtonPress}
+              activeOpacity={0.85}
+              disabled={isButtonDisabled}
+              accessibilityLabel="Bắt đầu cuộc họp"
+              accessibilityHint={
+                canStartCapture
+                  ? 'Bắt đầu phiên ghi âm mới'
+                  : 'Vào Settings để cấu hình model'
+              }>
+              <View style={styles.primaryButtonContent}>
+                <AppIcon name="mic" size={20} color={theme.colors.text.primary} />
+                <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}>
+                  {getButtonLabel()}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.bottomNavWrap}>
             <AppBottomNav activeTab="live" />
@@ -537,15 +564,37 @@ const styles = StyleSheet.create({
   bottomNavWrap: {
     marginHorizontal: -16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   primaryButton: {
     height: 52,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#6C5CE7',
-     shadowOffset: {width: 0, height: 8},
-     shadowOpacity: 0.25,
-     shadowRadius: 24,
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+  },
+  resumeButton: {
+    flex: 3,
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stopCompactButton: {
+    flex: 2,
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
   },
   primaryButtonContent: {
     flexDirection: 'row',
@@ -556,6 +605,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  secondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   stoppingOverlay: {
     ...StyleSheet.absoluteFillObject,
