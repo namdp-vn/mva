@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
+import {NativeModules, Platform} from 'react-native';
 import en from './locales/en.json';
 import vi from './locales/vi.json';
 import ja from './locales/ja.json';
@@ -19,8 +20,19 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 
 export function detectDeviceLanguage(): AppLanguage {
   try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    const lang = locale.split('-')[0] as AppLanguage;
+    let locale: string | undefined;
+    if (Platform.OS === 'ios') {
+      // iOS: AppleLanguages is the ordered list of preferred languages
+      const langs: string[] | undefined =
+        NativeModules.SettingsManager?.settings?.AppleLanguages;
+      locale = langs?.[0] ?? NativeModules.SettingsManager?.settings?.AppleLocale;
+    } else {
+      locale = NativeModules.I18nManager?.localeIdentifier;
+    }
+    if (!locale) {
+      locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    }
+    const lang = locale.split(/[-_]/)[0] as AppLanguage;
     return SUPPORTED_LANGUAGES.includes(lang) ? lang : 'vi';
   } catch {
     return 'vi';

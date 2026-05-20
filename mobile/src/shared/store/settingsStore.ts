@@ -125,7 +125,9 @@ export const useSettingsStore = create<SettingsState>()(
           targetLanguage: state.targetLanguage ?? DEFAULT_TARGET_LANGUAGE,
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
-          appLanguage: (state as SettingsState).appLanguage ?? detectDeviceLanguage(),
+          // If upgrading from a version before appLanguage existed (< 5), always use device language.
+          // If already on v5+, keep the stored preference (user may have changed it manually).
+          appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
         } as SettingsState;
       },
     }
