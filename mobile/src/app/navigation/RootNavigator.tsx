@@ -4,6 +4,7 @@
  */
 
 import React, {useEffect} from 'react';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {SplashScreen} from '../../features/bootstrap/screens/SplashScreen';
 import {MeetingScreen} from '../../features/meeting/screens/MeetingScreen';
 import {HistoryListScreen} from '../../features/history/screens/HistoryListScreen';
@@ -120,16 +121,16 @@ function NavigatorContent(): React.JSX.Element {
 
 export function RootNavigator(): React.JSX.Element {
   return (
-    <ThemeProvider>
-      {/* BundledModelsInitializer disabled — SplashScreen handles all initialization */}
-      <AppRouterProvider>
-        <ThemeProvider>
-          <BundledModelsInitializer />
-          <NavigatorContent />
-        </ThemeProvider>
-      </AppRouterProvider>
-
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppRouterProvider>
+          <ThemeProvider>
+            <BundledModelsInitializer />
+            <NavigatorContent />
+          </ThemeProvider>
+        </AppRouterProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
