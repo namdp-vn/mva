@@ -114,6 +114,7 @@
     "themeDark": "Tối",
     "sectionSpeakerDetection": "Phát hiện người nói",
     "settingSensitivity": "Độ nhạy",
+    "sensitivityDescription": "Giá trị thấp phát hiện nhiều lần đổi người nói hơn; giá trị cao gộp các người nói tương tự lại. Điều chỉnh theo quy mô và đặc điểm cuộc họp.",
     "sensitivityLow": "Thấp",
     "sensitivityLowDesc": "Ít nhãn người nói hơn",
     "sensitivityMedium": "Trung bình",

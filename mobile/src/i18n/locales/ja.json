@@ -114,6 +114,7 @@
     "themeDark": "ダーク",
     "sectionSpeakerDetection": "話者検出",
     "settingSensitivity": "感度",
+    "sensitivityDescription": "値が低いほど話者の変わり目を多く検出し、値が高いほど似た話者をまとめます。会議の規模や発話パターンに応じて調整してください。",
     "sensitivityLow": "低",
     "sensitivityLowDesc": "話者ラベルが少ない",
     "sensitivityMedium": "中",

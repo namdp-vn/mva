@@ -114,6 +114,7 @@
     "themeDark": "다크",
     "sectionSpeakerDetection": "화자 감지",
     "settingSensitivity": "민감도",
+    "sensitivityDescription": "낮은 값은 화자 전환을 더 많이 감지하고, 높은 값은 유사한 화자를 병합합니다. 회의 규모와 발화 패턴에 맞게 조정하세요.",
     "sensitivityLow": "낮음",
     "sensitivityLowDesc": "화자 레이블 적음",
     "sensitivityMedium": "중간",

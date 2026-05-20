@@ -114,6 +114,7 @@
     "themeDark": "深色",
     "sectionSpeakerDetection": "说话人检测",
     "settingSensitivity": "灵敏度",
+    "sensitivityDescription": "较低值检测更多说话人切换，较高值合并相似说话人。请根据会议规模和发言模式进行调整。",
     "sensitivityLow": "低",
     "sensitivityLowDesc": "说话人标签较少",
     "sensitivityMedium": "中",

@@ -114,6 +114,7 @@
     "themeDark": "Dark",
     "sectionSpeakerDetection": "Speaker Detection",
     "settingSensitivity": "Sensitivity",
+    "sensitivityDescription": "Lower values detect more speaker changes; higher values merge similar speakers. Adjust based on meeting size and speaking patterns.",
     "sensitivityLow": "Low",
     "sensitivityLowDesc": "Fewer speaker labels",
     "sensitivityMedium": "Medium",

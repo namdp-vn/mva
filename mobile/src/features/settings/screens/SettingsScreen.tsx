@@ -89,11 +89,11 @@ export function SettingsScreen(): React.JSX.Element {
   const [devUnlockTapCount, setDevUnlockTapCount] = useState(0);
 
   type PackRowStatus = LanguagePackStatus | 'loading';
-  const LANG_PACKS: {srcLang: string; flag: string; label: string}[] = [
-    {srcLang: 'en', flag: '🇬🇧', label: 'English'},
-    {srcLang: 'ja', flag: '🇯🇵', label: 'Japanese'},
-    {srcLang: 'ko', flag: '🇰🇷', label: 'Korean'},
-    {srcLang: 'zh', flag: '🇨🇳', label: 'Chinese'},
+  const LANG_PACKS: {srcLang: string; flag: string; labelKey: string; toKey: string}[] = [
+    {srcLang: 'en', flag: '🇬🇧', labelKey: 'englishLabel', toKey: 'englishToLabel'},
+    {srcLang: 'ja', flag: '🇯🇵', labelKey: 'japaneseLabel', toKey: 'japaneseToLabel'},
+    {srcLang: 'ko', flag: '🇰🇷', labelKey: 'koreanLabel', toKey: 'koreanToLabel'},
+    {srcLang: 'zh', flag: '🇨🇳', labelKey: 'chineseLabel', toKey: 'chineseToLabel'},
   ];
   const [packStatuses, setPackStatuses] = useState<Record<string, PackRowStatus>>({});
 
@@ -187,7 +187,11 @@ export function SettingsScreen(): React.JSX.Element {
     {label: t('sensitivityHigh'), value: 0.70, description: t('sensitivityHighDesc')},
   ];
 
-  const currentSensitivityLabel = getDiarizationThresholdLabel(diarizationThreshold);
+  const currentSensitivityLabel = diarizationThreshold <= 0.45
+    ? t('sensitivityLow')
+    : diarizationThreshold <= 0.75
+    ? t('sensitivityMedium')
+    : t('sensitivityHigh');
 
   const handleSensitivityChange = useCallback((value: number) => {
     setDiarizationThreshold(value);
@@ -396,7 +400,7 @@ export function SettingsScreen(): React.JSX.Element {
             <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacks')}</Text>
             <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacksSubtitle')}</Text>
             <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
-              {LANG_PACKS.map(({srcLang, flag, label}, index) => {
+              {LANG_PACKS.map(({srcLang, flag, labelKey, toKey}, index) => {
                 const status = packStatuses[srcLang];
                 const isInstalled = status === 'installed';
                 const isLoading = status === 'loading';
@@ -406,9 +410,9 @@ export function SettingsScreen(): React.JSX.Element {
                     {index > 0 && <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />}
                     <View style={styles.packRow}>
                       <View style={styles.settingInfo}>
-                        <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{flag} {label}</Text>
+                        <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{flag} {t(labelKey, {ns: 'splash'})}</Text>
                         <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
-                          {`${label} → ${currentLangOption.nativeLabel}`}
+                          {t(toKey, {ns: 'splash', lang: currentLangOption.nativeLabel})}
                         </Text>
                       </View>
                       {isLoading ? (
@@ -484,7 +488,7 @@ export function SettingsScreen(): React.JSX.Element {
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('settingSensitivity')}</Text>
                 <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
-                  {getDiarizationThresholdDescription()}
+                  {t('sensitivityDescription')}
                 </Text>
               </View>
               <View style={[styles.sensitivityBadge, {backgroundColor: theme.colors.primary + '20'}]}>

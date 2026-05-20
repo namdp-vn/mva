@@ -8,8 +8,15 @@ export function App(): React.JSX.Element {
   const isLight = Appearance.getColorScheme() === 'light';
 
   useEffect(() => {
-    // Apply persisted language after AsyncStorage hydration.
-    const applyStored = (state: {appLanguage: string}) => initI18n(state.appLanguage as any);
+    // Apply language after AsyncStorage hydration.
+    // If auto mode (user hasn't manually chosen), always use current device language.
+    const applyStored = (state: {appLanguage: string; appLanguageIsAuto?: boolean}) => {
+      if (state.appLanguageIsAuto !== false) {
+        useSettingsStore.getState().setAppLanguageAuto(detectDeviceLanguage());
+      } else {
+        initI18n(state.appLanguage as any);
+      }
+    };
     if (useSettingsStore.persist.hasHydrated()) {
       applyStored(useSettingsStore.getState());
     }
