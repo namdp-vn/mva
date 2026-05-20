@@ -201,8 +201,8 @@ export function MeetingScreen(): React.JSX.Element {
   const sttReady = modelState.status === 'cached-ready';
   const translatorInstalled = translatorModelState.status === 'cached-ready';
   const canStartCapture = sttReady && prewarmState.status !== 'failed';
-  // Khi paused: footer hiện lại để show nút Resume
-  const isLiveWorkspace = (isActive && !isPaused) || status === 'stopping';
+  // Footer chỉ ẩn khi đang active/stopping; pause dùng Play button trên status bar
+  const isLiveWorkspace = isActive || status === 'stopping';
   const showTranscriptLane = laneFocusMode !== 'translation';
   const showTranslationLane = laneFocusMode !== 'original';
   const transcriptLaneFlex = laneFocusMode === 'split' ? 1 : 1;
@@ -330,6 +330,7 @@ export function MeetingScreen(): React.JSX.Element {
           latencyMs={latencyMs}
           onStopMeeting={handleStopMeeting}
           onPauseMeeting={handlePauseMeeting}
+          onResumeMeeting={handleResumeMeeting}
           pipelineStatus={pipelineStatus}
           pipelineError={pipelineError}
           currentLanguage={latestDetectedLanguage || 'AUTO'}
@@ -416,50 +417,24 @@ export function MeetingScreen(): React.JSX.Element {
             styles.footerIdle,
             {backgroundColor: theme.colors.surface.primary},
           ]}>
-
-          {/* Khi paused: Resume (lớn) + Stop (nhỏ) */}
-          {isPaused ? (
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.resumeButton, {backgroundColor: '#16A34A'}]}
-                onPress={handleResumeMeeting}
-                activeOpacity={0.85}
-                accessibilityLabel={t('resumeButtonLabel')}>
-                <AppIcon name="mic" size={18} color="#FFFFFF" />
-                <Text style={[styles.primaryButtonText, {color: '#FFFFFF'}]}>{t('resumeButtonText')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.stopCompactButton, {backgroundColor: theme.colors.error}]}
-                onPress={handleStopMeeting}
-                disabled={isButtonDisabled}
-                activeOpacity={0.85}
-                accessibilityLabel={t('stopCompactLabel')}>
-                <AppIcon name="stop" size={16} color="#FFFFFF" />
-                <Text style={[styles.secondaryButtonText, {color: '#FFFFFF'}]}>{t('stopCompactText')}</Text>
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
+            onPress={handlePrimaryButtonPress}
+            activeOpacity={0.85}
+            disabled={isButtonDisabled}
+            accessibilityLabel={t('buttonStartMeeting')}
+            accessibilityHint={
+              canStartCapture
+                ? t('startMeetingHint')
+                : t('startMeetingSettingsHint')
+            }>
+            <View style={styles.primaryButtonContent}>
+              <AppIcon name="mic" size={20} color={theme.colors.text.primary} />
+              <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}>
+                {getButtonLabel()}
+              </Text>
             </View>
-          ) : (
-            /* Khi idle: nút Start full-width */
-            <TouchableOpacity
-              style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
-              onPress={handlePrimaryButtonPress}
-              activeOpacity={0.85}
-              disabled={isButtonDisabled}
-              accessibilityLabel={t('buttonStartMeeting')}
-              accessibilityHint={
-                canStartCapture
-                  ? t('startMeetingHint')
-                  : t('startMeetingSettingsHint')
-              }>
-              <View style={styles.primaryButtonContent}>
-                <AppIcon name="mic" size={20} color={theme.colors.text.primary} />
-                <Text style={[styles.primaryButtonText, {color: theme.colors.text.primary}]}>
-                  {getButtonLabel()}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
@@ -581,10 +556,6 @@ const styles = StyleSheet.create({
   footerIdle: {
     paddingBottom: 0,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
   primaryButton: {
     height: 52,
     borderRadius: 14,
@@ -595,24 +566,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 24,
   },
-  resumeButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stopCompactButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
   primaryButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -622,11 +575,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
-  },
-  secondaryButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
   },
   stoppingOverlay: {
     ...StyleSheet.absoluteFill,

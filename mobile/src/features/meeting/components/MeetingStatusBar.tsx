@@ -153,6 +153,7 @@ export interface MeetingStatusBarProps {
   latencyMs?: number | null;
   onStopMeeting?: () => void;
   onPauseMeeting?: () => void;
+  onResumeMeeting?: () => void;
   pipelineStatus?: string;
   pipelineError?: string | null;
   currentLanguage?: string;
@@ -167,6 +168,7 @@ export function MeetingStatusBar({
   latencyMs,
   onStopMeeting,
   onPauseMeeting,
+  onResumeMeeting,
   pipelineStatus,
   pipelineError,
   currentLanguage = 'EN',
@@ -209,6 +211,7 @@ export function MeetingStatusBar({
   const isPaused = sessionStatus === 'paused';
   const canStop = (isRecording || isPaused) && onStopMeeting;
   const canPause = isRecording && onPauseMeeting;
+  const canResume = isPaused && onResumeMeeting;
   const isCompactLive = isRecording || isPaused;
 
   const getStatusText = (): string => {
@@ -259,6 +262,15 @@ export function MeetingStatusBar({
               activeOpacity={0.8}
               accessibilityLabel={t('statusBarPauseLabel')}>
               <AppIcon name="pause" size={12} color="#F59E0B" />
+            </TouchableOpacity>
+          )}
+          {canResume && (
+            <TouchableOpacity
+              style={[styles.iconButton, {backgroundColor: '#16A34A22'}]}
+              onPress={onResumeMeeting}
+              activeOpacity={0.8}
+              accessibilityLabel={t('resumeButtonLabel')}>
+              <AppIcon name="play" size={12} color="#16A34A" />
             </TouchableOpacity>
           )}
           {canStop && (
