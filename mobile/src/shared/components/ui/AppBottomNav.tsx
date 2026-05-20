@@ -80,11 +80,11 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(71, 69, 84, 0.15)',
   },
   navTab: {
-    minWidth: 92,
+    flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     borderRadius: 12,
   },

@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
   },
   resumeButton: {
-    flex: 3,
+    flex: 1,
     height: 52,
     borderRadius: 14,
     flexDirection: 'row',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stopCompactButton: {
-    flex: 2,
+    flex: 1,
     height: 52,
     borderRadius: 14,
     flexDirection: 'row',
