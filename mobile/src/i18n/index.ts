@@ -1,6 +1,5 @@
 import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
-import {NativeModules, Platform} from 'react-native';
 import en from './locales/en.json';
 import vi from './locales/vi.json';
 import ja from './locales/ja.json';
@@ -20,23 +19,25 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 
 export function detectDeviceLanguage(): AppLanguage {
   try {
-    let locale: string | undefined;
-    if (Platform.OS === 'ios') {
-      // iOS: AppleLanguages is the ordered list of preferred languages
-      const langs: string[] | undefined =
-        NativeModules.SettingsManager?.settings?.AppleLanguages;
-      locale = langs?.[0] ?? NativeModules.SettingsManager?.settings?.AppleLocale;
-    } else {
-      locale = NativeModules.I18nManager?.localeIdentifier;
+    // getLocales() (RN 0.73+) reads NSLocale.preferredLanguages on iOS —
+    // the user's actual device preference, unaffected by CFBundleLocalizations.
+    // Type is not declared in all RN type packages so we use a dynamic require.
+    type Locale = {languageCode: string; countryCode?: string};
+    const rn = require('react-native') as {getLocales?: () => Locale[]};
+    const locales = rn.getLocales?.();
+    console.log('[i18n] getLocales result:', JSON.stringify(locales));
+    if (locales && locales.length > 0) {
+      const lang = locales[0].languageCode as AppLanguage;
+      console.log('[i18n] detected language:', lang);
+      if (SUPPORTED_LANGUAGES.includes(lang)) {
+        return lang;
+      }
     }
-    if (!locale) {
-      locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    }
-    const lang = locale.split(/[-_]/)[0] as AppLanguage;
-    return SUPPORTED_LANGUAGES.includes(lang) ? lang : 'vi';
-  } catch {
-    return 'vi';
+  } catch (e) {
+    console.log('[i18n] detectDeviceLanguage error:', e);
   }
+  console.log('[i18n] falling back to vi');
+  return 'vi';
 }
 
 // Initialize at module load time — i18next v26 with in-memory resources is synchronous.
