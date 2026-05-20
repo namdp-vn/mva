@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {View, Text, StyleSheet, Pressable, ActivityIndicator, SafeAreaView, Platform} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {spacing, typography, borderRadius, shadows} from '@shared/constants';
@@ -39,7 +40,15 @@ const PLATFORM_TRANSLATION_MODEL: ModelInfo = {
 
 type SplashNavigationProp = StackNavigationProp<RootStackParamList, 'Bootstrap'>;
 
-const TARGET_LANGUAGE_LABELS: Record<string, string> = {
+const TARGET_LANG_KEYS: Record<string, string> = {
+  vi: 'vietnameseLabel',
+  en: 'englishLabel',
+  zh: 'chineseLabel',
+  ko: 'koreanLabel',
+  ja: 'japaneseLabel',
+};
+
+const TARGET_LANGUAGE_LABELS_FALLBACK: Record<string, string> = {
   vi: 'Vietnamese',
   en: 'English',
   zh: 'Chinese',
@@ -52,8 +61,17 @@ interface LanguagePackCheck {
   displayName: string;
 }
 
-function getLanguagePacksToCheck(targetLang: string): LanguagePackCheck[] {
-  const targetLabel = TARGET_LANGUAGE_LABELS[targetLang] || targetLang;
+function getLanguagePacksToCheck(targetLang: string, tFn?: (key: string, opts?: any) => string): LanguagePackCheck[] {
+  if (tFn) {
+    const targetLabel = tFn(TARGET_LANG_KEYS[targetLang] ?? 'englishLabel');
+    return [
+      {srcLang: 'en', displayName: tFn('englishToLabel', {lang: targetLabel})},
+      {srcLang: 'ja', displayName: tFn('japaneseToLabel', {lang: targetLabel})},
+      {srcLang: 'ko', displayName: tFn('koreanToLabel', {lang: targetLabel})},
+      {srcLang: 'zh', displayName: tFn('chineseToLabel', {lang: targetLabel})},
+    ];
+  }
+  const targetLabel = TARGET_LANGUAGE_LABELS_FALLBACK[targetLang] || targetLang;
   return [
     {srcLang: 'en', displayName: `English → ${targetLabel}`},
     {srcLang: 'ja', displayName: `Japanese → ${targetLabel}`},
@@ -62,12 +80,12 @@ function getLanguagePacksToCheck(targetLang: string): LanguagePackCheck[] {
   ];
 }
 
-async function checkLanguagePacksStatus(targetLang: string): Promise<{installed: string[]; missing: string[]; allSupported: boolean}> {
+async function checkLanguagePacksStatus(targetLang: string, tFn?: (key: string, opts?: any) => string): Promise<{installed: string[]; missing: string[]; allSupported: boolean}> {
   const installed: string[] = [];
   const missing: string[] = [];
   let allSupported = true;
 
-  const packsToCheck = getLanguagePacksToCheck(targetLang);
+  const packsToCheck = getLanguagePacksToCheck(targetLang, tFn);
 
   if (Platform.OS === 'ios') {
     const nativeModule = getNativeAppleTranslator();
@@ -119,13 +137,14 @@ async function checkLanguagePacksStatus(targetLang: string): Promise<{installed:
 export const SplashScreen: React.FC = () => {
   const navigation = useNavigation<SplashNavigationProp>();
   const {theme, isDark} = useTheme();
+  const {t} = useTranslation('splash');
   const modelState = useModelState();
   const prewarmState = usePrewarmState();
   const overallStatus = useBootstrapOverallStatus();
   const targetLanguage = useTargetLanguage();
   const activeSttModel = MOCK_MODEL;
   const activeSttModelId = 'stt' as const;
-  const activeSttLabel = 'SenseVoice • EN / JA / KO / ZH';
+  const activeSttLabel = t('sttModelLabel');
   const {
     setModelDownloading,
     setModelDownloadProgress,
@@ -210,12 +229,12 @@ export const SplashScreen: React.FC = () => {
         setTranslatorModelDownloading(PLATFORM_TRANSLATION_MODEL);
         try {
           // Check language packs availability
-          const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage);
+          const {installed, missing, allSupported} = await checkLanguagePacksStatus(targetLanguage, t);
           warnLog(`[SplashScreen] Language packs: ${installed.length} installed, ${missing.length} missing for target ${targetLanguage}`);
 
           if (installed.length === 0 && missing.length > 0 && Platform.OS === 'ios' && allSupported) {
             const nativeModule = getNativeAppleTranslator();
-            const allPacks = getLanguagePacksToCheck(targetLanguage);
+            const allPacks = getLanguagePacksToCheck(targetLanguage, t);
             const missingObjs = allPacks.filter(p => missing.includes(p.displayName));
 
             // Show language selection UI — all missing packs selected by default
@@ -418,8 +437,8 @@ export const SplashScreen: React.FC = () => {
             </View>
           </View>
           <View style={styles.titleSection}>
-            <Text style={[styles.appName, {color: theme.colors.text.primary}]}>Meeting Voice Assistant</Text>
-            <Text style={[styles.tagline, {color: theme.colors.text.tertiary}]}>Understand every voice</Text>
+            <Text style={[styles.appName, {color: theme.colors.text.primary}]}>{t('appName')}</Text>
+            <Text style={[styles.tagline, {color: theme.colors.text.tertiary}]}>{t('appTagline')}</Text>
           </View>
         </View>
 
@@ -427,10 +446,10 @@ export const SplashScreen: React.FC = () => {
           {langPackStep === 'needs-download' ? (
             <View style={[styles.langPackCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
               <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
-                Chọn ngôn ngữ cần tải
+                {t('langPackSelectionTitle')}
               </Text>
               <Text style={[styles.langPackBody, {color: theme.colors.text.secondary}]}>
-                Chọn các ngôn ngữ bạn muốn dịch thuật. Các gói chạy hoàn toàn offline sau khi tải.
+                {t('langPackSelectionBody')}
               </Text>
               <View style={styles.langPackList}>
                 {missingPackObjs.map(pack => (
@@ -452,26 +471,26 @@ export const SplashScreen: React.FC = () => {
                 ))}
               </View>
               <Text style={[styles.langPackNote, {color: theme.colors.text.tertiary}]}>
-                ~30MB mỗi gói · Chỉ tải một lần · Hoạt động offline
+                {t('langPackNote')}
               </Text>
               <View style={styles.langPackActions}>
                 <Pressable
                   style={[styles.skipBtn, {borderColor: ringBorderColor}]}
                   onPress={handleSkipDownload}>
-                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>Bỏ qua</Text>
+                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>{t('langPackSkip')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}, selectedSrcLangs.size === 0 && {opacity: 0.4}]}
                   onPress={handleStartDownload}
                   disabled={selectedSrcLangs.size === 0}>
-                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Bắt đầu tải</Text>
+                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>{t('langPackConfirm')}</Text>
                 </Pressable>
               </View>
             </View>
           ) : langPackStep === 'downloading' ? (
             <View style={[styles.langPackCard, {borderColor: ringBorderColor, backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}]}>
               <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
-                {isVerifying ? 'Đang kiểm tra...' : 'Đang tải gói ngôn ngữ'}
+                {isVerifying ? t('langPackVerifyingTitle') : t('langPackDownloadingTitle')}
               </Text>
               <View style={styles.langPackList}>
                 {packDownloadItems.map(item => (
@@ -491,10 +510,10 @@ export const SplashScreen: React.FC = () => {
           ) : langPackStep === 'retry' ? (
             <View style={[styles.langPackCard, {borderColor: '#ffb4ab', backgroundColor: isDark ? 'rgba(255,180,171,0.06)' : 'rgba(255,180,171,0.08)'}]}>
               <Text style={[styles.langPackTitle, {color: theme.colors.text.primary}]}>
-                Tải xuống thất bại
+                {t('langPackFailedTitle')}
               </Text>
               <Text style={[styles.langPackBody, {color: theme.colors.text.secondary}]}>
-                Một số gói không tải được, có thể do kết nối mạng. Các gói đã tải thành công sẽ được giữ lại khi thử lại.
+                {t('langPackFailedMessage')}
               </Text>
               <View style={styles.langPackList}>
                 {failedPacks.map(pack => (
@@ -508,12 +527,12 @@ export const SplashScreen: React.FC = () => {
                 <Pressable
                   style={[styles.skipBtn, {borderColor: ringBorderColor}]}
                   onPress={handleSkipDownload}>
-                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>Bỏ qua</Text>
+                  <Text style={[styles.skipBtnText, {color: theme.colors.text.secondary}]}>{t('langPackSkip')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.confirmBtn, {backgroundColor: theme.colors.secondary}]}
                   onPress={handleRetryDownload}>
-                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>Thử lại</Text>
+                  <Text style={[styles.confirmBtnText, {color: isDark ? '#0a1a14' : '#ffffff'}]}>{t('langPackRetry')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -521,7 +540,7 @@ export const SplashScreen: React.FC = () => {
             <>
               {isInitializing || modelState.status === 'downloading' || useBootstrapStore.getState().state.translatorModel.status === 'downloading' ? (
                 <ProgressCard
-                  title="Loading on-device models..."
+                  title={t('loadingModelsTitle')}
                   subtitle={`${activeSttModel.name} + ${PLATFORM_TRANSLATION_MODEL.name}`}
                   progress={getProgressPercentage()}
                   bytesDownloaded={modelState.downloadProgress?.bytesDownloaded ?? 0}
@@ -533,25 +552,25 @@ export const SplashScreen: React.FC = () => {
                   <ReadinessStatus
                     domain="model"
                     status={modelState.status}
-                    label="AI Model"
+                    label={t('modelReadinessAiModel')}
                     description={modelState.currentModel ? `${modelState.currentModel.name} loaded` : undefined}
                   />
                   <ReadinessStatus
                     domain="model"
                     status={useBootstrapStore.getState().state.translatorModel.status}
-                    label="Translation Model"
+                    label={t('modelReadinessTranslation')}
                     description={useBootstrapStore.getState().state.translatorModel.currentModel ? `${useBootstrapStore.getState().state.translatorModel.currentModel?.name} loaded` : undefined}
                   />
                   <ReadinessStatus
                     domain="prewarm"
                     status={prewarmState.status}
-                    label="Speech Recognition"
-                    description="Ready for first utterance"
+                    label={t('modelReadinessSpeechRecognition')}
+                    description={t('modelReadinessDescription')}
                   />
                 </View>
               )}
               <Text style={[styles.statusMessage, {color: theme.colors.text.tertiary}]}>
-                {isInitializing ? 'Getting ready...' : overallStatus === 'ready' ? 'Ready to start' : 'Setup required'}
+                {isInitializing ? t('statusInitializing') : overallStatus === 'ready' ? t('statusReady') : t('statusSetupRequired')}
               </Text>
             </>
           )}
@@ -580,7 +599,7 @@ export const SplashScreen: React.FC = () => {
                   pressed && styles.readyButtonPressed,
                 ]}
                 onPress={() => navigation.replace('Meeting')}>
-                <Text style={[styles.readyButtonText, {color: isDark ? theme.colors.text.primary : '#FFFFFF'}]}>Start Meeting</Text>
+                <Text style={[styles.readyButtonText, {color: isDark ? theme.colors.text.primary : '#FFFFFF'}]}>{t('startMeetingButton')}</Text>
               </Pressable>
             </View>
           )}

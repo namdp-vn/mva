@@ -23,6 +23,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {useTheme} from '../../../shared/hooks/useTheme';
@@ -53,6 +54,7 @@ const APP_NAME = 'Executive MVA';
 
 export function MeetingScreen(): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const navigation = useNavigation<MeetingNavigationProp>();
   const modelState = useModelState();
   const translatorModelState = useTranslatorModelState();
@@ -136,11 +138,11 @@ export function MeetingScreen(): React.JSX.Element {
   const handleStopMeeting = useCallback(async () => {
     const confirmed = await new Promise<boolean>(resolve => {
       Alert.alert(
-        'Bạn có chắc chắn muốn dừng cuộc hội thoại này không?',
+        t('stopConfirmTitle'),
         '',
         [
-          {text: 'Hủy', style: 'cancel', onPress: () => resolve(false)},
-          {text: 'Dừng và lưu lại', style: 'destructive', onPress: () => resolve(true)},
+          {text: t('stopConfirmCancel'), style: 'cancel', onPress: () => resolve(false)},
+          {text: t('stopConfirmDelete'), style: 'destructive', onPress: () => resolve(true)},
         ],
         {cancelable: true, onDismiss: () => resolve(false)},
       );
@@ -182,9 +184,9 @@ export function MeetingScreen(): React.JSX.Element {
   const transcriptLaneFlex = laneFocusMode === 'split' ? 1 : 1;
   const translationLaneFlex = laneFocusMode === 'split' ? 1 : 1;
   const laneFocusOptions: Array<{key: LaneFocusMode; label: string}> = [
-    {key: 'original', label: 'Original'},
-    {key: 'split', label: 'Split'},
-    {key: 'translation', label: 'Translation'},
+    {key: 'original', label: t('laneOriginal')},
+    {key: 'split', label: t('laneSplit')},
+    {key: 'translation', label: t('laneTranslation')},
   ];
 
   const handlePrimaryButtonPress = useCallback(async () => {
@@ -200,17 +202,17 @@ export function MeetingScreen(): React.JSX.Element {
 
     if (Platform.OS === 'ios' && arePacksDownloaded() === false) {
       Alert.alert(
-        'Chưa tải gói ngôn ngữ',
-        'Dịch thuật real-time sẽ không hoạt động trong cuộc họp vì các gói ngôn ngữ chưa được tải về.',
+        t('packNotDownloadedTitle'),
+        t('packNotDownloadedMessage'),
         [
           {
-            text: 'Quay lại tải',
+            text: t('packGoBack'),
             onPress: () => {
               navigation.reset({index: 0, routes: [{name: 'Bootstrap'}]});
             },
           },
           {
-            text: 'Tiếp tục không dịch',
+            text: t('packContinueWithout'),
             style: 'destructive',
             onPress: handleStartMeeting,
           },
@@ -224,10 +226,10 @@ export function MeetingScreen(): React.JSX.Element {
   }, [isActive, handleStopMeeting, sttReady, navigation, handleStartMeeting]);
 
   const getButtonLabel = (): string => {
-    if (status === 'stopping') return 'Stopping...';
-    if (isActive) return 'Stop Meeting';
-    if (!sttReady) return 'Open Settings';
-    return 'Start Meeting';
+    if (status === 'stopping') return t('buttonStopping');
+    if (isActive) return t('buttonStopMeeting');
+    if (!sttReady) return t('buttonOpenSettings');
+    return t('buttonStartMeeting');
   };
 
   const isButtonDisabled = status === 'stopping';
@@ -247,7 +249,7 @@ export function MeetingScreen(): React.JSX.Element {
         <View style={styles.headerLeft}>
           <Text
             style={[styles.headerEyebrow, {color: theme.colors.text.tertiary}]}>
-            {isRecording ? 'LIVE SESSION' : 'READY'}
+            {isRecording ? t('headerLive') : t('headerReady')}
           </Text>
           <Text
             style={[
@@ -265,8 +267,8 @@ export function MeetingScreen(): React.JSX.Element {
             onPress={() => navigation.navigate('History')}
             activeOpacity={0.7}
             disabled={isActive}
-            accessibilityLabel="View meeting history"
-            accessibilityHint="Shows past meeting transcripts and translations">
+            accessibilityLabel={t('viewHistoryLabel')}
+            accessibilityHint={t('viewHistoryHint')}>
             <AppIcon name="forum" size={18} color={theme.colors.text.primary} />
           </TouchableOpacity>
           <TouchableOpacity
@@ -274,8 +276,8 @@ export function MeetingScreen(): React.JSX.Element {
             onPress={() => navigation.navigate('Settings')}
             activeOpacity={0.7}
             disabled={isActive}
-            accessibilityLabel="Open settings"
-            accessibilityHint="Configure bundled models and meeting preferences">
+            accessibilityLabel={t('openSettingsLabel')}
+            accessibilityHint={t('openSettingsHint')}>
             <AppIcon name="settings" size={18} color={theme.colors.text.primary} />
           </TouchableOpacity>
         </View>
@@ -284,21 +286,12 @@ export function MeetingScreen(): React.JSX.Element {
       {!canStartCapture && (
         <View
           style={[styles.readinessWarning, {backgroundColor: theme.colors.surface.secondary}]}
-          accessibilityLabel="Meeting setup incomplete"
           accessibilityRole="alert">
           <Text style={[styles.readinessTitle, {color: theme.colors.text.primary}]}>
-            Meeting setup incomplete
-          </Text>
-          <Text style={[styles.readinessCopy, {color: theme.colors.text.tertiary}]}>
-            {modelState.status !== 'cached-ready'
-              ? 'Speech recognition model not ready. Please wait for preparation to complete.'
-              : translatorModelState.status !== 'cached-ready'
-                ? 'Translation model is optional. Install it to enable in-meeting translation.'
-              : prewarmState.status !== 'ready'
-                ? 'Finalizing speech recognition warm-up...'
-                : (!translatorInstalled
-                    ? 'Translation may take a moment to initialize when the meeting starts.'
-                    : 'Translation model will initialize when the meeting starts.')}
+            {modelState.status !== 'cached-ready' ? t('readinessModelNotReady') :
+             translatorModelState.status !== 'cached-ready' ? t('readinessTranslatorOptional') :
+             prewarmState.status !== 'ready' ? t('readinessPrewarmPending') :
+             (!translatorInstalled ? t('readinessTranslatorMissing') : t('readinessTranslatorInit'))}
           </Text>
         </View>
       )}
@@ -387,7 +380,7 @@ export function MeetingScreen(): React.JSX.Element {
       {isStopping && (
         <View style={styles.stoppingOverlay}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.stoppingText}>Đang lưu...</Text>
+          <Text style={styles.stoppingText}>{t('savingOverlay')}</Text>
         </View>
       )}
 
@@ -406,18 +399,18 @@ export function MeetingScreen(): React.JSX.Element {
                 style={[styles.resumeButton, {backgroundColor: '#16A34A'}]}
                 onPress={handleResumeMeeting}
                 activeOpacity={0.85}
-                accessibilityLabel="Tiếp tục ghi âm">
+                accessibilityLabel={t('resumeButtonLabel')}>
                 <AppIcon name="mic" size={18} color="#FFFFFF" />
-                <Text style={[styles.primaryButtonText, {color: '#FFFFFF'}]}>Tiếp tục</Text>
+                <Text style={[styles.primaryButtonText, {color: '#FFFFFF'}]}>{t('resumeButtonText')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.stopCompactButton, {backgroundColor: theme.colors.error}]}
                 onPress={handleStopMeeting}
                 disabled={isButtonDisabled}
                 activeOpacity={0.85}
-                accessibilityLabel="Dừng và lưu">
+                accessibilityLabel={t('stopCompactLabel')}>
                 <AppIcon name="stop" size={16} color="#FFFFFF" />
-                <Text style={[styles.secondaryButtonText, {color: '#FFFFFF'}]}>Dừng & Lưu</Text>
+                <Text style={[styles.secondaryButtonText, {color: '#FFFFFF'}]}>{t('stopCompactText')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -427,11 +420,11 @@ export function MeetingScreen(): React.JSX.Element {
               onPress={handlePrimaryButtonPress}
               activeOpacity={0.85}
               disabled={isButtonDisabled}
-              accessibilityLabel="Bắt đầu cuộc họp"
+              accessibilityLabel={t('buttonStartMeeting')}
               accessibilityHint={
                 canStartCapture
-                  ? 'Bắt đầu phiên ghi âm mới'
-                  : 'Vào Settings để cấu hình model'
+                  ? t('startMeetingHint')
+                  : t('startMeetingSettingsHint')
               }>
               <View style={styles.primaryButtonContent}>
                 <AppIcon name="mic" size={20} color={theme.colors.text.primary} />
@@ -612,7 +605,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   stoppingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',

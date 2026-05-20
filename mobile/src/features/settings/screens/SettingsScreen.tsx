@@ -18,6 +18,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {useTheme} from '../../../shared/hooks/useTheme';
@@ -32,7 +33,9 @@ import {
   useDiarizationThreshold,
   TARGET_LANGUAGE_OPTIONS,
   getLanguageOption,
+  useAppLanguage,
 } from '../../../shared/store';
+import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
 import {
   formatDiarizationThreshold,
   getDiarizationThresholdLabel,
@@ -76,8 +79,13 @@ export function SettingsScreen(): React.JSX.Element {
   const {setDiarizationThreshold} = useSettingsStore();
   const translationEngineLabel = Platform.OS === 'ios' ? 'Apple Translate' : 'Opus-MT';
 
+  const {t} = useTranslation('settings');
+  const appLanguage = useAppLanguage();
+  const {setAppLanguage} = useSettingsStore();
+
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
+  const [appLangSelectorVisible, setAppLangSelectorVisible] = useState(false);
   const [devUnlockTapCount, setDevUnlockTapCount] = useState(0);
 
   type PackRowStatus = LanguagePackStatus | 'loading';
@@ -174,10 +182,10 @@ export function SettingsScreen(): React.JSX.Element {
   // Values are blended 30% with the algorithm's internal 0.55 default,
   // so the effective threshold range is narrower than these raw values.
   const SENSITIVITY_PRESETS = [
-    {label: 'Low', value: 0.40, description: 'Fewer speaker labels'},
-    {label: 'Medium', value: 0.55, description: 'Balanced'},
-    {label: 'High', value: 0.70, description: 'More speaker labels'},
-  ] as const;
+    {label: t('sensitivityLow'), value: 0.40, description: t('sensitivityLowDesc')},
+    {label: t('sensitivityMedium'), value: 0.55, description: t('sensitivityMediumDesc')},
+    {label: t('sensitivityHigh'), value: 0.70, description: t('sensitivityHighDesc')},
+  ];
 
   const currentSensitivityLabel = getDiarizationThresholdLabel(diarizationThreshold);
 
@@ -187,12 +195,12 @@ export function SettingsScreen(): React.JSX.Element {
 
   const handleDeleteAllSessions = useCallback(async () => {
     Alert.alert(
-      'Delete All Sessions',
-      'Permanently delete all meeting sessions, transcripts, and translations? This cannot be undone.',
+      t('deleteAllSessionsTitle'),
+      t('deleteAllSessionsMessage'),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('deleteAllSessionsCancel'), style: 'cancel'},
         {
-          text: 'Delete All',
+          text: t('deleteAllSessionsConfirm'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -200,13 +208,13 @@ export function SettingsScreen(): React.JSX.Element {
               await persistence.deleteAllSessions();
             } catch (error) {
               console.warn('[SettingsScreen] Failed to delete all sessions:', error);
-              Alert.alert('Error', 'Failed to delete all sessions. Please try again.');
+              Alert.alert(t('deleteSessionsError'), t('deleteSessionsErrorMessage'));
             }
           },
         },
       ],
     );
-  }, []);
+  }, [t]);
 
   const handleDeveloperUnlock = useCallback(() => {
     const nextCount = devUnlockTapCount + 1;
@@ -216,7 +224,7 @@ export function SettingsScreen(): React.JSX.Element {
     if (nextCount >= 7) {
       setDeveloperMode(true);
       setDevUnlockTapCount(0);
-      Alert.alert('Developer Mode Enabled', 'Advanced diagnostics and tuning options are now visible.');
+      Alert.alert(t('developerUnlockTitle'), t('developerUnlockMessage'));
       return;
     }
     setDevUnlockTapCount(nextCount);
@@ -224,27 +232,27 @@ export function SettingsScreen(): React.JSX.Element {
 
   const getModelStatusDisplay = (status: string, isReady: boolean) => {
     if (isReady || status === 'cached-ready') {
-      return {icon: 'check-circle', color: theme.colors.secondary, label: 'Ready'};
+      return {icon: 'check-circle', color: theme.colors.secondary, label: t('modelStatusReady')};
     }
     if (status === 'downloading') {
-      return {icon: 'download', color: theme.colors.primary, label: 'Preparing'};
+      return {icon: 'download', color: theme.colors.primary, label: t('modelStatusPreparing')};
     }
     if (status === 'deleting') {
-      return {icon: 'delete', color: theme.colors.error, label: 'Removing'};
+      return {icon: 'delete', color: theme.colors.error, label: t('modelStatusRemoving')};
     }
     if (status === 'invalid') {
-      return {icon: 'error', color: theme.colors.error, label: 'Invalid'};
+      return {icon: 'error', color: theme.colors.error, label: t('modelStatusInvalid')};
     }
-    return {icon: 'cloud-off', color: theme.colors.text.tertiary, label: 'Not Available'};
+    return {icon: 'cloud-off', color: theme.colors.text.tertiary, label: t('modelStatusUnavailable')};
   };
 
   const sttStatus = getModelStatusDisplay(modelState.status, modelState.status === 'cached-ready');
 
   const translationStatus = translatorModelState.status === 'cached-ready'
-    ? {icon: 'check-circle', color: theme.colors.secondary, label: 'Ready'}
+    ? {icon: 'check-circle', color: theme.colors.secondary, label: t('modelStatusReady')}
     : translatorModelState.status === 'missing'
-    ? {icon: 'cloud-off', color: theme.colors.text.tertiary, label: 'Not Available'}
-    : {icon: 'error', color: theme.colors.error, label: 'Unavailable'};
+    ? {icon: 'cloud-off', color: theme.colors.text.tertiary, label: t('modelStatusUnavailable')}
+    : {icon: 'error', color: theme.colors.error, label: t('modelStatusUnavailable')};
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: theme.colors.background.primary}]}> 
@@ -253,23 +261,44 @@ export function SettingsScreen(): React.JSX.Element {
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backButton}>
           <AppIcon name="back" size={24} color={theme.colors.text.primary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: theme.colors.text.primary}]}>Settings</Text>
+        <Text style={[styles.headerTitle, {color: theme.colors.text.primary}]}>{t('title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* General Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>General</Text>
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionGeneral')}</Text>
 
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
+            {/* App Language */}
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => setAppLangSelectorVisible(true)}
+              activeOpacity={0.7}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('appLanguage')}</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('appLanguageDesc')}</Text>
+              </View>
+              <View style={[styles.languageSelector, {backgroundColor: theme.colors.surface.container}]}>
+                <Text style={styles.languageFlag}>{LANGUAGE_LABELS[appLanguage]?.flag ?? '🌐'}</Text>
+                <Text style={[styles.languageCode, {color: theme.colors.text.primary}]}>
+                  {appLanguage.toUpperCase()}
+                </Text>
+                <AppIcon name="chevron-down" size={16} color={theme.colors.text.tertiary} />
+              </View>
+            </TouchableOpacity>
+
+            <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+
+            {/* Target Language */}
             <TouchableOpacity
               style={styles.settingRow}
               onPress={() => setLangSelectorVisible(true)}
               activeOpacity={0.7}>
               <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Target Language</Text>
-                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Translate all meeting output into this language.</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('targetLanguage')}</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('targetLanguageDesc')}</Text>
               </View>
               <View style={[styles.languageSelector, {backgroundColor: theme.colors.surface.container}]}> 
                 <Text style={[styles.languageFlag]}>{LANGUAGE_FLAGS[targetLanguage] ?? '🇻🇳'}</Text>
@@ -284,8 +313,10 @@ export function SettingsScreen(): React.JSX.Element {
 
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Translation Engine</Text>
-                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Uses {translationEngineLabel} for on-device meeting translation.</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('translationEngine')}</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
+                  {Platform.OS === 'ios' ? t('translationEngineDescIos') : t('translationEngineDescAndroid')}
+                </Text>
               </View>
               <View style={[styles.inlineBadge, {backgroundColor: theme.colors.surface.container}]}>
                 <Text style={[styles.inlineBadgeText, {color: theme.colors.text.secondary}]}>{translationEngineLabel}</Text>
@@ -296,16 +327,16 @@ export function SettingsScreen(): React.JSX.Element {
 
             <View style={styles.sttEngineCard}>
               <View style={styles.settingInfoNoMargin}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Speech Recognition Engine</Text>
-                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>SenseVoice bundled for offline EN / JA / KO / ZH speech recognition.</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('speechRecognition')}</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('speechRecognitionDesc')}</Text>
               </View>
               <View style={styles.sttEngineRow}>
                 <View style={[
                   styles.sttEngineButton,
                   {backgroundColor: theme.colors.primary + '25', borderColor: theme.colors.primary},
                 ]}>
-                  <Text style={[styles.sttEngineLabel, {color: theme.colors.primary}]}>SenseVoice</Text>
-                  <Text style={[styles.sttEngineLangs, {color: theme.colors.primary}]}>EN · JA · KO · ZH</Text>
+                  <Text style={[styles.sttEngineLabel, {color: theme.colors.primary}]}>{t('sttEngineName')}</Text>
+                  <Text style={[styles.sttEngineLangs, {color: theme.colors.primary}]}>{t('sttEngineLangs')}</Text>
                 </View>
               </View>
             </View>
@@ -314,27 +345,27 @@ export function SettingsScreen(): React.JSX.Element {
 
         {/* AI Models Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>On-Device AI</Text>
-          <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>Speech recognition and speaker detection are stored locally on your device.</Text>
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionAiModels')}</Text>
+          <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>{t('sectionAiModelsSubtitle')}</Text>
 
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
             <View style={styles.aiSummaryHeader}>
               <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Model Summary</Text>
-                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Core speech models are installed locally. Translation uses the device-native engine.</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('modelSummaryTitle')}</Text>
+                <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('modelSummaryDesc')}</Text>
               </View>
               <TouchableOpacity
                 style={[styles.manageModelsButton, {backgroundColor: theme.colors.surface.container}]}
                 onPress={() => navigation.navigate('ModelRepository')}
                 activeOpacity={0.7}>
-                <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>Manage Models</Text>
+                <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>{t('manageModelsButton')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
 
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>Speech Recognition</Text>
+              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>{t('modelSpeechRecognition')}</Text>
               <View style={[styles.statusBadge, {backgroundColor: sttStatus.color + '20', borderColor: sttStatus.color + '40'}]}>
                 <AppIcon name={sttStatus.icon as any} size={12} color={sttStatus.color} />
                 <Text style={[styles.statusBadgeText, {color: sttStatus.color}]}>{sttStatus.label}</Text>
@@ -342,7 +373,7 @@ export function SettingsScreen(): React.JSX.Element {
             </View>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>Translation</Text>
+              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>{t('modelTranslation')}</Text>
               <View style={[styles.statusBadge, {backgroundColor: translationStatus.color + '20', borderColor: translationStatus.color + '40'}]}>
                 <AppIcon name={translationStatus.icon as any} size={12} color={translationStatus.color} />
                 <Text style={[styles.statusBadgeText, {color: translationStatus.color}]}>{translationStatus.label}</Text>
@@ -350,10 +381,10 @@ export function SettingsScreen(): React.JSX.Element {
             </View>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>Speaker Detection</Text>
+              <Text style={[styles.summaryLabel, {color: theme.colors.text.tertiary}]}>{t('modelSpeakerDetection')}</Text>
               <View style={[styles.statusBadge, {backgroundColor: theme.colors.secondary + '20', borderColor: theme.colors.secondary + '40'}]}>
                 <AppIcon name="check-circle" size={12} color={theme.colors.secondary} />
-                <Text style={[styles.statusBadgeText, {color: theme.colors.secondary}]}>Bundled</Text>
+                <Text style={[styles.statusBadgeText, {color: theme.colors.secondary}]}>{t('modelBundled')}</Text>
               </View>
             </View>
           </View>
@@ -362,8 +393,8 @@ export function SettingsScreen(): React.JSX.Element {
         {/* Translation Language Packs (iOS only) */}
         {Platform.OS === 'ios' && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Translation Language Packs</Text>
-            <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>Apple Translation packs stored offline on this device. ~30MB per pack.</Text>
+            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacks')}</Text>
+            <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacksSubtitle')}</Text>
             <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
               {LANG_PACKS.map(({srcLang, flag, label}, index) => {
                 const status = packStatuses[srcLang];
@@ -385,19 +416,19 @@ export function SettingsScreen(): React.JSX.Element {
                       ) : isInstalled ? (
                         <View style={[styles.statusBadge, {backgroundColor: theme.colors.secondary + '20', borderColor: theme.colors.secondary + '40'}]}>
                           <AppIcon name="check-circle" size={12} color={theme.colors.secondary} />
-                          <Text style={[styles.statusBadgeText, {color: theme.colors.secondary}]}>Installed</Text>
+                          <Text style={[styles.statusBadgeText, {color: theme.colors.secondary}]}>{t('packInstalled')}</Text>
                         </View>
                       ) : isAvailable ? (
                         <TouchableOpacity
                           style={[styles.packDownloadBtn, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '60'}]}
                           onPress={() => handleDownloadPack(srcLang)}
                           activeOpacity={0.7}>
-                          <Text style={[styles.packDownloadBtnText, {color: theme.colors.primary}]}>Tải xuống</Text>
+                          <Text style={[styles.packDownloadBtnText, {color: theme.colors.primary}]}>{t('packDownload')}</Text>
                         </TouchableOpacity>
                       ) : (
                         <View style={[styles.statusBadge, {backgroundColor: theme.colors.text.tertiary + '20', borderColor: theme.colors.border.subtle}]}>
                           <Text style={[styles.statusBadgeText, {color: theme.colors.text.tertiary}]}>
-                            {status === 'unsupported' ? 'N/A' : '—'}
+                            {status === 'unsupported' ? t('packUnavailable') : '—'}
                           </Text>
                         </View>
                       )}
@@ -411,19 +442,19 @@ export function SettingsScreen(): React.JSX.Element {
 
         {/* Appearance Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Appearance</Text>
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionAppearance')}</Text>
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
             <View style={styles.themeCardContent}>
               <View style={styles.settingInfoNoMargin}>
-              <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Theme</Text>
-              <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Choose how the app appears across all screens.</Text>
+              <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('settingTheme')}</Text>
+              <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('settingThemeDesc')}</Text>
               </View>
               <View style={styles.themeModeRow}>
                 {([
-                  {key: 'system', label: 'System'},
-                  {key: 'light', label: 'Light'},
-                  {key: 'dark', label: 'Dark'},
-                ] as const).map((option) => {
+                  {key: 'system', label: t('themeSystem')},
+                  {key: 'light', label: t('themeLight')},
+                  {key: 'dark', label: t('themeDark')},
+                ] as {key: 'system' | 'light' | 'dark'; label: string}[]).map((option) => {
                   const active = themeMode === option.key;
                   return (
                     <TouchableOpacity
@@ -447,11 +478,11 @@ export function SettingsScreen(): React.JSX.Element {
 
         {/* Speaker Detection Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Speaker Detection</Text>
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionSpeakerDetection')}</Text>
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
             <View style={styles.speakerDetectionHeader}>
               <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Sensitivity</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('settingSensitivity')}</Text>
                 <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>
                   {getDiarizationThresholdDescription()}
                 </Text>
@@ -500,7 +531,7 @@ export function SettingsScreen(): React.JSX.Element {
             {/* Current value indicator */}
             <View style={styles.sensitivityCurrentValue}>
               <Text style={[styles.sensitivityCurrentLabel, {color: theme.colors.text.tertiary}]}>
-                Current:
+                {t('currentSensitivity')}
               </Text>
               <Text style={[styles.sensitivityCurrentValueText, {color: theme.colors.text.primary}]}>
                 {formatDiarizationThreshold(diarizationThreshold)}
@@ -511,23 +542,23 @@ export function SettingsScreen(): React.JSX.Element {
 
         {/* Local Data Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Local Data</Text>
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionLocalData')}</Text>
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
             <View style={styles.storageRow}>
-              <Text style={[styles.storageLabel, {color: theme.colors.text.tertiary}]}>AI Models</Text>
+              <Text style={[styles.storageLabel, {color: theme.colors.text.tertiary}]}>{t('storageAiModels')}</Text>
               <Text style={[styles.storageValue, {color: theme.colors.text.primary}]}>{TOTAL_MODELS_SIZE_MB} MB</Text>
             </View>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.storageRow}>
-              <Text style={[styles.storageLabel, {color: theme.colors.text.tertiary}]}>Session Data</Text>
+              <Text style={[styles.storageLabel, {color: theme.colors.text.tertiary}]}>{t('storageSessionData')}</Text>
               <Text style={[styles.storageValue, {color: theme.colors.text.primary}]}>
                 {sessionDataSizeMB > 0 ? `${sessionDataSizeMB} MB` : '—'}
               </Text>
             </View>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, {color: theme.colors.text.primary}]}>Total Local</Text>
-              <Text style={[styles.totalValue, {color: theme.colors.primary}]}> 
+              <Text style={[styles.totalLabel, {color: theme.colors.text.primary}]}>{t('storageTotalLocal')}</Text>
+              <Text style={[styles.totalValue, {color: theme.colors.primary}]}>
                 {TOTAL_MODELS_SIZE_MB + sessionDataSizeMB} MB
               </Text>
             </View>
@@ -535,9 +566,9 @@ export function SettingsScreen(): React.JSX.Element {
             <View style={styles.localDataNoteRow}>
               <View style={styles.privacyBadge}>
                 <AppIcon name="check-circle" size={18} color={theme.colors.secondary} />
-                <Text style={[styles.privacyBadgeText, {color: theme.colors.secondary}]}>100% Offline</Text>
+                <Text style={[styles.privacyBadgeText, {color: theme.colors.secondary}]}>{t('storageOfflineBadge')}</Text>
               </View>
-              <Text style={[styles.localDataNote, {color: theme.colors.text.tertiary}]}>Audio, transcripts, and translations stay on this device. Removing the app deletes locally stored data.</Text>
+              <Text style={[styles.localDataNote, {color: theme.colors.text.tertiary}]}>{t('storageOfflineNote')}</Text>
             </View>
           </View>
 
@@ -546,19 +577,19 @@ export function SettingsScreen(): React.JSX.Element {
             onPress={handleDeleteAllSessions}
             activeOpacity={0.7}>
             <AppIcon name="delete" size={18} color={theme.colors.error} />
-            <Text style={[styles.deleteButtonText, {color: theme.colors.error}]}>Delete All Sessions</Text>
+            <Text style={[styles.deleteButtonText, {color: theme.colors.error}]}>{t('deleteAllSessions')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Developer Mode Section */}
         {developerMode && (
           <View style={styles.section}>
-            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>Developer Options</Text>
-            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionDeveloper')}</Text>
+            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Developer Mode</Text>
-                  <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>Show performance metrics overlay during meetings.</Text>
+                  <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('developerMode')}</Text>
+                  <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('developerModeDesc')}</Text>
                 </View>
                 <Switch
                   value={developerMode}
@@ -569,23 +600,23 @@ export function SettingsScreen(): React.JSX.Element {
               </View>
             </View>
 
-            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary, marginTop: spacing.sm}]}> 
+            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary, marginTop: spacing.sm}]}>
               <View style={{padding: spacing.md, gap: spacing.xs}}>
-                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>Speaker Diarization Tuning</Text>
+                <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('developerDiarizationTuning')}</Text>
                 <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, marginBottom: spacing.sm}]}>
-                  Fine-tune clustering parameters for speaker identification
+                  {t('developerDiarizationDesc')}
                 </Text>
 
                 {([
-                  {key: 'similarityThreshold' as const, label: 'Similarity Threshold', min: 0.30, max: 0.80, step: 0.05},
-                  {key: 'highConfidenceThreshold' as const, label: 'High Confidence', min: 0.55, max: 0.85, step: 0.05},
-                  {key: 'lowConfidenceThreshold' as const, label: 'Low Confidence', min: 0.20, max: 0.50, step: 0.05},
-                  {key: 'clusterMergeThreshold' as const, label: 'Merge Threshold', min: 0.45, max: 0.75, step: 0.05},
-                  {key: 'temporalBiasBoost' as const, label: 'Temporal Bias Boost', min: 0.00, max: 0.20, step: 0.02},
-                  {key: 'temporalBiasWindow' as const, label: 'Temporal Window (s)', min: 3, max: 30, step: 1},
-                  {key: 'minUtteranceDuration' as const, label: 'Min Utterance (s)', min: 0.5, max: 3.0, step: 0.5},
-                  {key: 'maxSpeakers' as const, label: 'Max Speakers', min: 2, max: 12, step: 1},
-                ] as const).map(({key, label, min, max, step}) => (
+                  {key: 'similarityThreshold' as const, label: t('developerSimilarityThreshold'), min: 0.30, max: 0.80, step: 0.05},
+                  {key: 'highConfidenceThreshold' as const, label: t('developerHighConfidence'), min: 0.55, max: 0.85, step: 0.05},
+                  {key: 'lowConfidenceThreshold' as const, label: t('developerLowConfidence'), min: 0.20, max: 0.50, step: 0.05},
+                  {key: 'clusterMergeThreshold' as const, label: t('developerMergeThreshold'), min: 0.45, max: 0.75, step: 0.05},
+                  {key: 'temporalBiasBoost' as const, label: t('developerTemporalBias'), min: 0.00, max: 0.20, step: 0.02},
+                  {key: 'temporalBiasWindow' as const, label: t('developerTemporalWindow'), min: 3, max: 30, step: 1},
+                  {key: 'minUtteranceDuration' as const, label: t('developerMinUtterance'), min: 0.5, max: 3.0, step: 0.5},
+                  {key: 'maxSpeakers' as const, label: t('developerMaxSpeakers'), min: 2, max: 12, step: 1},
+                ] as {key: keyof SpeakerClusterConfig; label: string; min: number; max: number; step: number}[]).map(({key, label, min, max, step}) => (
                   <View key={key} style={styles.tuningRow}>
                     <Text style={[styles.tuningLabel, {color: theme.colors.text.secondary}]}>{label}</Text>
                     <View style={styles.tuningControls}>
@@ -620,7 +651,7 @@ export function SettingsScreen(): React.JSX.Element {
                   style={[styles.resetDefaultsButton, {borderColor: theme.colors.border.subtle}]}
                   onPress={resetClusterDefaults}
                   activeOpacity={0.7}>
-                  <Text style={[styles.resetDefaultsText, {color: theme.colors.text.secondary}]}>Reset to Defaults</Text>
+                  <Text style={[styles.resetDefaultsText, {color: theme.colors.text.secondary}]}>{t('developerResetDefaults')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -629,16 +660,16 @@ export function SettingsScreen(): React.JSX.Element {
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>About</Text>
-          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}> 
+          <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionAbout')}</Text>
+          <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
             <TouchableOpacity style={styles.aboutRow} onPress={handleDeveloperUnlock} activeOpacity={0.7}>
-              <Text style={[styles.aboutLabel, {color: theme.colors.text.tertiary}]}>Version</Text>
-              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}>1.0.0</Text>
+              <Text style={[styles.aboutLabel, {color: theme.colors.text.tertiary}]}>{t('aboutVersion')}</Text>
+              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}>{t('aboutVersionValue')}</Text>
             </TouchableOpacity>
             <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
             <View style={styles.aboutRow}>
-              <Text style={[styles.aboutLabel, {color: theme.colors.text.tertiary}]}>Translation</Text>
-              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}> 
+              <Text style={[styles.aboutLabel, {color: theme.colors.text.tertiary}]}>{t('aboutTranslation')}</Text>
+              <Text style={[styles.aboutValue, {color: theme.colors.text.primary}]}>
                 {currentLangOption.nativeLabel}
               </Text>
             </View>
@@ -647,6 +678,52 @@ export function SettingsScreen(): React.JSX.Element {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* App Language Selector Modal */}
+      <Modal
+        visible={appLangSelectorVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAppLangSelectorVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setAppLangSelectorVisible(false)}>
+          <View style={[styles.modalContent, {backgroundColor: theme.colors.surface.primary}]}>
+            <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>{t('appLanguageSelectorTitle')}</Text>
+            {SUPPORTED_LANGUAGES.map((langCode, index) => {
+              const info = LANGUAGE_LABELS[langCode as AppLanguage];
+              return (
+                <TouchableOpacity
+                  key={langCode}
+                  style={[
+                    styles.langOption,
+                    index < SUPPORTED_LANGUAGES.length - 1 && {borderBottomWidth: 1, borderBottomColor: theme.colors.border.subtle},
+                    appLanguage === langCode && {backgroundColor: theme.colors.surface.container},
+                  ]}
+                  onPress={() => {
+                    setAppLanguage(langCode as AppLanguage);
+                    setAppLangSelectorVisible(false);
+                  }}
+                  activeOpacity={0.7}>
+                  <Text style={styles.langOptionFlag}>{info?.flag ?? '🌐'}</Text>
+                  <View style={styles.langOptionInfo}>
+                    <Text style={[styles.langOptionNative, {color: theme.colors.text.primary}]}>
+                      {info?.nativeLabel ?? langCode}
+                    </Text>
+                    <Text style={[styles.langOptionLabel, {color: theme.colors.text.tertiary}]}>
+                      {info?.label ?? langCode}
+                    </Text>
+                  </View>
+                  {appLanguage === langCode && (
+                    <AppIcon name="check-circle" size={20} color={theme.colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Language Selector Modal */}
       <Modal
@@ -659,7 +736,7 @@ export function SettingsScreen(): React.JSX.Element {
           activeOpacity={1}
           onPress={() => setLangSelectorVisible(false)}>
           <View style={[styles.modalContent, {backgroundColor: theme.colors.surface.primary}]}>
-            <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>Select Target Language</Text>
+            <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>{t('languageSelectorTitle')}</Text>
             {TARGET_LANGUAGE_OPTIONS.map((langOption, index) => (
               <TouchableOpacity
                 key={langOption.code}

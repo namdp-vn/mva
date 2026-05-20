@@ -35,7 +35,8 @@ type IconName =
   | 'cloud_off'
   | 'signal_disconnected'
   | 'chevron-down'
-  | 'chevron_down';
+  | 'chevron_down'
+  | 'pause';
 
 const glyphMap: Record<IconName, string> = {
   menu: '≡',
@@ -71,6 +72,7 @@ const glyphMap: Record<IconName, string> = {
   'signal_disconnected': '⛁',
   'chevron-down': '⌄',
   'chevron_down': '⌄',
+  'pause': '⏸',
 };
 
 interface AppIconProps {

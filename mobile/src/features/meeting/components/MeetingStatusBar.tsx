@@ -7,6 +7,7 @@
 
 import React, {useEffect, useState, useRef} from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, Animated, AccessibilityInfo} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useTheme} from '../../../shared/hooks/useTheme';
 import {AppIcon} from '../../../shared/components/ui';
 import type {IconName} from '../../../shared/components/ui/AppIcon';
@@ -127,8 +128,9 @@ function LanguageBadge({language}: LanguageBadgeProps): React.JSX.Element {
 
 function ConnectivityIndicator({connectivity}: {connectivity: ConnectivityStatus}): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const dotColor: string = theme.colors.success;
-  const label = connectivity === 'online' ? 'On Device' : 'Connected';
+  const label = connectivity === 'online' ? t('statusBarOnDevice') : t('statusBarConnected');
   const icon: IconName = 'check-circle';
 
   return (
@@ -172,6 +174,7 @@ export function MeetingStatusBar({
   speakerDebug = null,
 }: MeetingStatusBarProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -209,13 +212,13 @@ export function MeetingStatusBar({
   const isCompactLive = isRecording || isPaused;
 
   const getStatusText = (): string => {
-    if (sessionStatus === 'idle') return 'Ready';
-    if (sessionStatus === 'recording') return 'Recording';
-    if (sessionStatus === 'paused') return 'Paused';
-    if (sessionStatus === 'stopping') return 'Stopping';
-    if (sessionStatus === 'complete') return 'Complete';
-    if (sessionStatus === 'interrupted') return 'Interrupted';
-    return 'Ready';
+    if (sessionStatus === 'idle') return t('statusReady');
+    if (sessionStatus === 'recording') return t('statusRecording');
+    if (sessionStatus === 'paused') return t('statusPaused');
+    if (sessionStatus === 'stopping') return t('statusStopping');
+    if (sessionStatus === 'complete') return t('statusComplete');
+    if (sessionStatus === 'interrupted') return t('statusInterrupted');
+    return t('statusReady');
   };
 
   return (
@@ -254,7 +257,7 @@ export function MeetingStatusBar({
               style={[styles.iconButton, {backgroundColor: '#F59E0B22'}]}
               onPress={onPauseMeeting}
               activeOpacity={0.8}
-              accessibilityLabel="Tạm dừng">
+              accessibilityLabel={t('statusBarPauseLabel')}>
               <AppIcon name="pause" size={12} color="#F59E0B" />
             </TouchableOpacity>
           )}
@@ -263,7 +266,7 @@ export function MeetingStatusBar({
               style={[styles.iconButton, {backgroundColor: theme.colors.error}]}
               onPress={onStopMeeting}
               activeOpacity={0.8}
-              accessibilityLabel="Dừng và lưu">
+              accessibilityLabel={t('statusBarStopLabel')}>
               <AppIcon name="stop" size={12} color="#FFFFFF" />
             </TouchableOpacity>
           )}

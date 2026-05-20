@@ -1,6 +1,7 @@
 import {localStorage as AsyncStorage} from '../utils/localStorage';
 import {create} from 'zustand';
 import {createJSONStorage, persist} from 'zustand/middleware';
+import {type AppLanguage, detectDeviceLanguage, changeAppLanguage} from '../../i18n';
 
 export type AppThemeMode = 'system' | 'dark' | 'light';
 
@@ -54,6 +55,8 @@ export const DEFAULT_DIARIZATION_THRESHOLD = 0.55;
 export type SttEngineType = 'sense_voice';
 export const DEFAULT_STT_ENGINE: SttEngineType = 'sense_voice';
 
+export type {AppLanguage};
+
 interface SettingsState {
   developerMode: boolean;
   setDeveloperMode: (enabled: boolean) => void;
@@ -68,6 +71,9 @@ interface SettingsState {
   /** STT engine: SenseVoice (EN/JA/KO/ZH). */
   sttEngine: SttEngineType;
   setSttEngine: (engine: SttEngineType) => void;
+  /** App UI language — auto-detected from device locale on first run. */
+  appLanguage: AppLanguage;
+  setAppLanguage: (lang: AppLanguage) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -84,10 +90,15 @@ export const useSettingsStore = create<SettingsState>()(
         set({diarizationThreshold: Math.max(DIARIZATION_THRESHOLD_MIN, Math.min(DIARIZATION_THRESHOLD_MAX, threshold))}),
       sttEngine: DEFAULT_STT_ENGINE,
       setSttEngine: (engine) => set({sttEngine: engine}),
+      appLanguage: detectDeviceLanguage(),
+      setAppLanguage: (lang) => {
+        set({appLanguage: lang});
+        changeAppLanguage(lang);
+      },
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -95,6 +106,7 @@ export const useSettingsStore = create<SettingsState>()(
         targetLanguage: state.targetLanguage,
         diarizationThreshold: state.diarizationThreshold,
         sttEngine: state.sttEngine,
+        appLanguage: state.appLanguage,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -113,6 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
           targetLanguage: state.targetLanguage ?? DEFAULT_TARGET_LANGUAGE,
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
+          appLanguage: (state as SettingsState).appLanguage ?? detectDeviceLanguage(),
         } as SettingsState;
       },
     }
@@ -124,3 +137,4 @@ export const useThemeMode = () => useSettingsStore((state) => state.themeMode);
 export const useTargetLanguage = () => useSettingsStore((state) => state.targetLanguage);
 export const useDiarizationThreshold = () => useSettingsStore((state) => state.diarizationThreshold);
 export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
+export const useAppLanguage = () => useSettingsStore((state) => state.appLanguage);

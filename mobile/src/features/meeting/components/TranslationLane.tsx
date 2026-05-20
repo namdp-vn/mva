@@ -24,6 +24,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useTheme} from '../../../shared/hooks/useTheme';
 import {AppIcon, SpeakerBadge} from '../../../shared/components/ui';
 import {TranslationEntry} from '../state/meetingStore';
@@ -53,6 +54,7 @@ function JumpToLatestPill({
   visible: boolean;
 }): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   return (
     <Animated.View
@@ -67,7 +69,7 @@ function JumpToLatestPill({
         activeOpacity={0.8}>
         <AppIcon name="chevron-down" size={14} color={theme.colors.jumpPill.text} />
         <Text style={[styles.jumpPillText, {color: theme.colors.jumpPill.text}]}>
-          Latest
+          {t('translationJumpPill')}
         </Text>
       </TouchableOpacity>
     </Animated.View>
@@ -80,10 +82,11 @@ function JumpToLatestPill({
 
 function ProvisionalBadge(): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   return (
     <View style={[styles.provisionalBadge, {backgroundColor: theme.colors.secondary + '25'}]}>
       <Text style={[styles.provisionalBadgeText, {color: theme.colors.secondary}]}>
-        DRAFT
+        {t('translationDraftBadge')}
       </Text>
     </View>
   );
@@ -97,6 +100,7 @@ function TranslationEntryItem({
   isActive: boolean;
 }): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   // Provisional = not yet final
   const isProvisional = !entry.isFinal;
@@ -127,8 +131,8 @@ function TranslationEntryItem({
           {!isProvisional && (
             <View style={styles.finalBadge}>
               <AppIcon name="check-circle" size={10} color={theme.colors.text.tertiary} />
-              <Text style={[styles.finalBadgeText, {color: theme.colors.text.tertiary}]}> 
-                FINAL
+              <Text style={[styles.finalBadgeText, {color: theme.colors.text.tertiary}]}>
+                {t('translationFinalBadge')}
               </Text>
             </View>
           )}
@@ -139,7 +143,7 @@ function TranslationEntryItem({
                 <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
                 <View style={[styles.dot, {backgroundColor: theme.colors.secondary}]} />
               </View>
-              <Text style={[styles.processingText, {color: theme.colors.secondary}]}>Translating</Text>
+              <Text style={[styles.processingText, {color: theme.colors.secondary}]}>{t('translationProcessing')}</Text>
             </View>
           )}
         </View>
@@ -169,21 +173,22 @@ function TranslationEntryItem({
 
 function OfflineState(): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   return (
     <View
       style={styles.offlineContainer}
-      accessibilityLabel="Translation paused"
+      accessibilityLabel={t('translationOfflineTitle')}
       accessibilityRole="alert">
       <View
         style={[styles.offlineIconContainer, {backgroundColor: theme.colors.surface.secondary}]}>
         <AppIcon name="cloud-off" size={28} color={theme.colors.secondary} />
       </View>
       <Text style={[styles.offlineTitle, {color: theme.colors.text.secondary}]}>
-        Translation Paused
+        {t('translationOfflineTitle')}
       </Text>
-      <Text style={[styles.offlineDescription, {color: theme.colors.text.tertiary}]}> 
-        Translation is temporarily unavailable. On-device translation will resume automatically.
+      <Text style={[styles.offlineDescription, {color: theme.colors.text.tertiary}]}>
+        {t('translationOfflineMessage')}
       </Text>
     </View>
   );
@@ -191,20 +196,21 @@ function OfflineState(): React.JSX.Element {
 
 function DegradedState({translationAvailable = false, message}: {translationAvailable?: boolean; message?: string | null}): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   return (
     <View
       style={styles.degradedContainer}
-      accessibilityLabel="Translation temporarily unavailable"
+      accessibilityLabel={t('translationDegradedUnavailableTitle')}
       accessibilityRole="alert">
       <AppIcon name="warning" size={20} color={theme.colors.warning} />
-      <Text style={[styles.degradedTitle, {color: theme.colors.text.secondary}]}> 
-        {translationAvailable ? 'Optional Processing Limited' : 'Translation Unavailable'}
+      <Text style={[styles.degradedTitle, {color: theme.colors.text.secondary}]}>
+        {translationAvailable ? t('translationDegradedOptionalTitle') : t('translationDegradedUnavailableTitle')}
       </Text>
-      <Text style={[styles.degradedDescription, {color: theme.colors.text.tertiary}]}> 
+      <Text style={[styles.degradedDescription, {color: theme.colors.text.tertiary}]}>
         {message ?? (translationAvailable
-          ? 'Some optional processing is temporarily limited. Translation continues normally.'
-          : 'Translation is temporarily unavailable. Please wait a moment and try again.')}
+          ? t('translationDegradedOptionalMessage')
+          : t('translationDegradedUnavailableMessage'))}
       </Text>
     </View>
   );
@@ -212,38 +218,39 @@ function DegradedState({translationAvailable = false, message}: {translationAvai
 
 function WaitingState({isRecording}: {isRecording: boolean}): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   return (
     <View style={styles.waitingContainer}>
-      <View style={[styles.waitingIconWrap, {backgroundColor: theme.colors.surface.secondary}]}> 
+      <View style={[styles.waitingIconWrap, {backgroundColor: theme.colors.surface.secondary}]}>
         <View style={styles.waitingIconRow}>
-        <View style={[styles.languageChip, {backgroundColor: theme.colors.surface.secondary}]}> 
-          <Text style={[styles.languageChipText, {color: theme.colors.text.tertiary}]}>AUTO</Text>
-        </View>
-        <View style={styles.arrowContainer}>
-          <AppIcon name="forward" size={14} color={theme.colors.text.tertiary} />
-        </View>
-        <View style={[styles.languageChip, {backgroundColor: theme.colors.secondary}]}> 
-          <Text style={[styles.languageChipText, {color: theme.colors.text.primary}]}>VI</Text>
-        </View>
+          <View style={[styles.languageChip, {backgroundColor: theme.colors.surface.secondary}]}>
+            <Text style={[styles.languageChipText, {color: theme.colors.text.tertiary}]}>AUTO</Text>
+          </View>
+          <View style={styles.arrowContainer}>
+            <AppIcon name="forward" size={14} color={theme.colors.text.tertiary} />
+          </View>
+          <View style={[styles.languageChip, {backgroundColor: theme.colors.secondary}]}>
+            <Text style={[styles.languageChipText, {color: theme.colors.text.primary}]}>VI</Text>
+          </View>
         </View>
       </View>
       {isRecording ? (
         <>
-          <Text style={[styles.waitingTitle, {color: theme.colors.text.secondary}]}> 
-            Translation standing by
+          <Text style={[styles.waitingTitle, {color: theme.colors.text.secondary}]}>
+            {t('translationWaitingTitleRecording')}
           </Text>
-          <Text style={[styles.waitingDescription, {color: theme.colors.text.tertiary}]}> 
-            Incoming English, Japanese, Korean, and Chinese speech will appear here in Vietnamese.
+          <Text style={[styles.waitingDescription, {color: theme.colors.text.tertiary}]}>
+            {t('translationWaitingSubtitleRecording')}
           </Text>
         </>
       ) : (
         <>
-          <Text style={[styles.waitingTitle, {color: theme.colors.text.secondary}]}> 
-            Translation Ready
+          <Text style={[styles.waitingTitle, {color: theme.colors.text.secondary}]}>
+            {t('translationWaitingTitleIdle')}
           </Text>
           <Text style={[styles.waitingDescription, {color: theme.colors.text.tertiary}]}>
-            Start meeting to begin translation.
+            {t('translationWaitingSubtitleIdle')}
           </Text>
         </>
       )}
@@ -266,6 +273,7 @@ export function TranslationLane({
   isRecording,
 }: TranslationLaneProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const scrollViewRef = useRef<ScrollView>(null);
   const pillOpacity = useRef(new Animated.Value(0)).current;
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -347,17 +355,17 @@ export function TranslationLane({
       <View style={styles.header}>
         <View style={[styles.headerLeft, {borderLeftColor: theme.colors.lane.translation}]}>
           <View style={styles.headerTitleRow}>
-            <Text style={[styles.headerLabel, {color: theme.colors.lane.translation}]}>BẢN DỊCH</Text>
+            <Text style={[styles.headerLabel, {color: theme.colors.lane.translation}]}>{t('translationHeader')}</Text>
           </View>
           <Text style={[styles.headerSubtitle, {color: theme.colors.text.tertiary}]}>
-            Active
+            {t('translationSubtitle')}
           </Text>
         </View>
         {hasEntries && (
           <View style={styles.headerRight}>
             <View style={styles.activeIndicator}>
               <View style={[styles.activeDot, {backgroundColor: theme.colors.lane.translation}]} />
-              <Text style={[styles.activeText, {color: theme.colors.lane.translation}]}>Active</Text>
+              <Text style={[styles.activeText, {color: theme.colors.lane.translation}]}>{t('translationSubtitle')}</Text>
             </View>
           </View>
         )}

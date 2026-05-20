@@ -20,6 +20,7 @@ import {
   RefreshControl,
   SafeAreaView,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
 import {StackNavigationProp} from '../../../app/navigation/router';
 import {useTheme} from '../../../shared/hooks/useTheme';
@@ -157,16 +158,17 @@ interface AppHeaderProps {
 
 function AppHeader({onSettingsPress}: AppHeaderProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('history');
 
   return (
     <View style={[styles.appHeader, {backgroundColor: theme.colors.surface.secondary}]}>
       <View style={styles.appHeaderLeft}>
         <Text style={[styles.appHeaderTitle, {color: theme.colors.text.primary}]}>
-          Executive MVA
+          {t('appTitle')}
         </Text>
         <View style={styles.statusIndicator}>
           <View style={styles.statusDot} />
-          <Text style={[styles.statusLabel, {color: theme.colors.secondary}]}>Connected</Text>
+          <Text style={[styles.statusLabel, {color: theme.colors.secondary}]}>{t('connectedStatus')}</Text>
         </View>
       </View>
       <View style={styles.appHeaderRight}>
@@ -174,7 +176,7 @@ function AppHeader({onSettingsPress}: AppHeaderProps): React.JSX.Element {
           style={[styles.headerIconButton, {backgroundColor: theme.colors.surface['container-high']}]}
           onPress={onSettingsPress}
           activeOpacity={0.7}
-          accessibilityLabel="Settings">
+          accessibilityLabel={t('settingsButton')}>
           <AppIcon name="settings" size={18} color={theme.colors.text.secondary} />
         </TouchableOpacity>
         <View style={[styles.avatar, {borderColor: 'rgba(71, 69, 84, 0.3)'}]}>
@@ -214,19 +216,18 @@ interface FABNewMeetingProps {
 
 function FABNewMeeting({onPress}: FABNewMeetingProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('history');
 
   return (
     <View style={styles.fabContainer}>
-      {/* Tooltip label */}
       <View style={[styles.fabTooltip, {backgroundColor: theme.colors.surface['container-high']}]}>
-        <Text style={[styles.fabTooltipText, {color: theme.colors.primary}]}>New Meeting</Text>
+        <Text style={[styles.fabTooltipText, {color: theme.colors.primary}]}>{t('fabNewMeeting')}</Text>
       </View>
-      {/* FAB button */}
       <TouchableOpacity
         style={[styles.fab, {backgroundColor: theme.colors.primary}]}
         onPress={onPress}
         activeOpacity={0.85}
-        accessibilityLabel="New Meeting"
+        accessibilityLabel={t('fabNewMeeting')}
         accessibilityRole="button">
         <AppIcon name="mic" size={24} color={theme.colors.surface.primary} />
       </TouchableOpacity>
@@ -240,24 +241,22 @@ function FABNewMeeting({onPress}: FABNewMeetingProps): React.JSX.Element {
 
 function EmptyState({onStartMeeting}: {onStartMeeting: () => void}): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('history');
 
   return (
     <View style={styles.emptyState}>
-      {/* Mic icon in circle */}
       <TouchableOpacity
         style={[styles.emptyIconCircle, {backgroundColor: theme.colors.surface.container}]}
         onPress={onStartMeeting}
         activeOpacity={0.8}
-        accessibilityLabel="Start a meeting">
+        accessibilityLabel={t('startMeetingLabel')}>
         <AppIcon name="mic" size={40} color={theme.colors.text.tertiary} />
       </TouchableOpacity>
-
-      {/* Text */}
       <Text style={[styles.emptyTitle, {color: theme.colors.text.primary}]}>
-        Start your first meeting
+        {t('emptyStateTitle')}
       </Text>
       <Text style={[styles.emptySubtitle, {color: theme.colors.text.tertiary}]}>
-        Your meeting history will appear here
+        {t('emptyStateSubtitle')}
       </Text>
     </View>
   );
@@ -275,22 +274,23 @@ interface SessionCardProps {
 
 function SessionCard({item, onPress, onDelete}: SessionCardProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('history');
 
   const handleLongPress = useCallback(() => {
     Alert.alert(
-      'Delete this session?',
-      'This cannot be undone. All transcripts and translations will be permanently deleted.',
+      t('sessionDeleteTitle'),
+      t('sessionDeleteMessage'),
       [
-        {text: 'Cancel', style: 'cancel'},
+        {text: t('sessionDeleteCancel'), style: 'cancel'},
         {
-          text: 'Delete',
+          text: t('sessionDeleteConfirm'),
           style: 'destructive',
           onPress: onDelete,
         },
       ],
       {cancelable: true},
     );
-  }, [onDelete]);
+  }, [onDelete, t]);
 
   return (
     <TouchableOpacity
@@ -300,7 +300,7 @@ function SessionCard({item, onPress, onDelete}: SessionCardProps): React.JSX.Ele
       delayLongPress={500}
       activeOpacity={0.7}
       accessibilityLabel={`${item.title}, ${item.dateLabel}, ${item.durationLabel}`}
-      accessibilityHint="Long press to delete this session">
+      accessibilityHint={t('sessionDeleteHint')}>
       {/* Header: title + duration badge */}
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleArea}>
@@ -333,7 +333,7 @@ function SessionCard({item, onPress, onDelete}: SessionCardProps): React.JSX.Ele
       <View style={styles.cardUtteranceRow}>
         <AppIcon name="insights" size={14} color={theme.colors.text.tertiary} />
         <Text style={[styles.cardUtteranceText, {color: theme.colors.text.tertiary}]}>
-          {item.utteranceCount} Utterance{item.utteranceCount !== 1 ? 's' : ''}
+          {item.utteranceCount} {item.utteranceCount !== 1 ? t('sessionUtterancePlural') : t('sessionUtteranceSingular')}
         </Text>
       </View>
 
@@ -430,18 +430,19 @@ export function HistoryListScreen(): React.JSX.Element {
   );
 
   // Delete session
+  const {t} = useTranslation('history');
+
   const handleDeleteSession = useCallback(
     async (sessionId: string) => {
       try {
         const persistence = getPersistenceService();
         await persistence.deleteSession(sessionId as SessionId);
-        // List updates automatically via subscription
       } catch (error) {
         console.warn('[HistoryListScreen] Failed to delete session:', error);
-        Alert.alert('Error', 'Failed to delete session. Please try again.');
+        Alert.alert(t('sessionDeleteError'), t('sessionDeleteErrorMessage'));
       }
     },
-    [],
+    [t],
   );
 
   // Render item
@@ -475,10 +476,10 @@ export function HistoryListScreen(): React.JSX.Element {
         {/* Section header */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, {color: theme.colors.text.primary}]}>
-            Sessions
+            {t('sectionSessions')}
           </Text>
           <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>
-            Archived meeting transcripts
+            {t('sectionSessionsSubtitle')}
           </Text>
         </View>
 

@@ -21,6 +21,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {useTheme} from '../../../shared/hooks/useTheme';
 import {AppIcon, SpeakerBadge} from '../../../shared/components/ui';
 import {TranscriptEntry} from '../state/meetingStore';
@@ -48,6 +49,7 @@ function JumpToLatestPill({
   visible: boolean;
 }): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   return (
     <Animated.View
@@ -62,7 +64,7 @@ function JumpToLatestPill({
         activeOpacity={0.8}>
         <AppIcon name="chevron-down" size={14} color={theme.colors.jumpPill.text} />
         <Text style={[styles.jumpPillText, {color: theme.colors.jumpPill.text}]}>
-          Latest
+          {t('transcriptJumpPill')}
         </Text>
       </TouchableOpacity>
     </Animated.View>
@@ -151,15 +153,16 @@ function TranscriptEntryItem({entry}: {entry: TranscriptEntry}): React.JSX.Eleme
 
 function EmptyState({isRecording, isOffline}: {isRecording: boolean; isOffline: boolean}): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
 
   if (isOffline) {
     return (
       <View style={styles.emptyContainer}>
-        <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}> 
+        <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}>
           <AppIcon name="mic" size={18} color={theme.colors.text.tertiary} />
         </View>
-        <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>Transcript Active</Text>
-        <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>Offline mode — transcript continues on device.</Text>
+        <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>{t('transcriptEmptyOfflineTitle')}</Text>
+        <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>{t('transcriptEmptyOfflineMessage')}</Text>
       </View>
     );
   }
@@ -167,22 +170,22 @@ function EmptyState({isRecording, isOffline}: {isRecording: boolean; isOffline: 
   if (!isRecording) {
     return (
       <View style={styles.emptyContainer}>
-        <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}> 
+        <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}>
           <AppIcon name="mic" size={18} color={theme.colors.text.tertiary} />
         </View>
-        <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>Original Transcript</Text>
-        <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>Start a meeting to see the live source transcript here.</Text>
+        <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>{t('transcriptEmptyIdleTitle')}</Text>
+        <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>{t('transcriptEmptyIdleMessage')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.emptyContainer}>
-      <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}> 
+      <View style={[styles.emptyIconWrap, {backgroundColor: theme.colors.surface.secondary}]}>
         <AppIcon name="sync" size={18} color={theme.colors.primary} />
       </View>
-      <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>Listening for speech</Text>
-      <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>Speak in English, Japanese, Korean, or Chinese to start the live transcript.</Text>
+      <Text style={[styles.emptyTitle, {color: theme.colors.text.secondary}]}>{t('transcriptEmptyListeningTitle')}</Text>
+      <Text style={[styles.emptyDescription, {color: theme.colors.text.tertiary}]}>{t('transcriptEmptyListeningMessage')}</Text>
     </View>
   );
 }
@@ -200,6 +203,7 @@ export function TranscriptLane({
   isOffline = false,
 }: TranscriptLaneProps): React.JSX.Element {
   const {theme} = useTheme();
+  const {t} = useTranslation('meeting');
   const scrollViewRef = useRef<ScrollView>(null);
   const pillOpacity = useRef(new Animated.Value(0)).current;
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -273,20 +277,20 @@ export function TranscriptLane({
       <View style={styles.header}>
         <View style={[styles.headerLeft, {borderLeftColor: theme.colors.lane.transcript}]}>
           <View style={styles.headerTitleRow}>
-            <Text style={[styles.headerLabel, {color: theme.colors.lane.transcript}]}>ORIGINAL</Text>
+            <Text style={[styles.headerLabel, {color: theme.colors.lane.transcript}]}>{t('transcriptHeader')}</Text>
           </View>
           <Text style={[styles.headerSubtitle, {color: theme.colors.text.tertiary}]}>
-            Real-time Feed
+            {t('transcriptSubtitle')}
           </Text>
         </View>
         <View style={styles.headerRight}>
           <Text style={[styles.countText, {color: theme.colors.text.tertiary}]}>
-            {orderedEntries.length} items
+            {orderedEntries.length}
           </Text>
           {isRecording && (
             <View style={styles.liveIndicator}>
               <View style={styles.liveDot} />
-              <Text style={[styles.liveText, {color: theme.colors.success}]}>Live</Text>
+              <Text style={[styles.liveText, {color: theme.colors.success}]}>{t('transcriptLive')}</Text>
             </View>
           )}
         </View>
