@@ -27,24 +27,28 @@ export function detectDeviceLanguage(): AppLanguage {
   }
 }
 
+// Initialize at module load time — i18next v26 with in-memory resources is synchronous.
+// This ensures t() works correctly from the very first render.
+i18n.use(initReactI18next).init({
+  resources: {
+    en: {meeting: en.meeting, settings: en.settings, history: en.history, splash: en.splash},
+    vi: {meeting: vi.meeting, settings: vi.settings, history: vi.history, splash: vi.splash},
+    ja: {meeting: ja.meeting, settings: ja.settings, history: ja.history, splash: ja.splash},
+    ko: {meeting: ko.meeting, settings: ko.settings, history: ko.history, splash: ko.splash},
+    zh: {meeting: zh.meeting, settings: zh.settings, history: zh.history, splash: zh.splash},
+  },
+  lng: detectDeviceLanguage(),
+  fallbackLng: 'vi',
+  ns: ['meeting', 'settings', 'history', 'splash'],
+  defaultNS: 'meeting',
+  interpolation: {escapeValue: false},
+});
+
+/** Call after Zustand store hydrates to apply the persisted app language. */
 export function initI18n(language?: AppLanguage): void {
-  if (i18n.isInitialized) {
-    return;
+  if (language && language !== i18n.language) {
+    i18n.changeLanguage(language);
   }
-  i18n.use(initReactI18next).init({
-    resources: {
-      en: {meeting: en.meeting, settings: en.settings, history: en.history, splash: en.splash},
-      vi: {meeting: vi.meeting, settings: vi.settings, history: vi.history, splash: vi.splash},
-      ja: {meeting: ja.meeting, settings: ja.settings, history: ja.history, splash: ja.splash},
-      ko: {meeting: ko.meeting, settings: ko.settings, history: ko.history, splash: ko.splash},
-      zh: {meeting: zh.meeting, settings: zh.settings, history: zh.history, splash: zh.splash},
-    },
-    lng: language ?? detectDeviceLanguage(),
-    fallbackLng: 'vi',
-    defaultNS: 'meeting',
-    interpolation: {escapeValue: false},
-    compatibilityJSON: 'v4',
-  });
 }
 
 export function changeAppLanguage(language: AppLanguage): void {
