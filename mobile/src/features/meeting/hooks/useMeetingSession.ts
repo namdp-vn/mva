@@ -1217,16 +1217,15 @@ export function useMeetingSession(): UseMeetingSessionReturn {
   }, [store]);
 
   const stopMeeting = useCallback(async () => {
-    console.warn('[useMeetingSession] stopMeeting CALLED');
     const persistence = getPersistenceService();
     const translator = getOnDeviceTranslator();
-    // Immediately flip to 'stopping' so the stop button disappears and the
-    // status bar shows "Stopping" — don't wait for the slow async cleanup.
     store.beginStop();
     stoppingSessionRef.current = true;
     translator.cancelPending();
+
     const recognizer = realRecognizerRef.current ?? realSpeechRecognizer;
     const sessionSamples = recognizer?.getSessionAudioBuffer() ?? [];
+
     if (recognizer) {
       try {
         await recognizer.stop();
@@ -1245,116 +1244,81 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     }
 
     releaseMeetingPipelineInstance();
-
     await translator.unload().catch(() => undefined);
     await translator.waitForIdle(5000).catch(() => false);
 
-    // Capture the freshest possible session snapshot AFTER recognizer/pipeline stop,
-    // so any flushed final utterance is included in persistence/review/export.
+    // Snapshot session AFTER recognizer/pipeline stop so any flushed final
+    // utterance is included before we hand off to the review screen.
     const currentSession = useMeetingStore.getState().session;
     store.stopSession();
 
-    if (currentSession.id) {
-      const endedAt = Date.now();
-      const finalSessionData: SessionData = {
-        id: currentSession.id,
-        startedAt: currentSession.startedAt ?? endedAt,
-        endedAt,
-        sourceLanguage: currentSession.sourceLanguage,
-        targetLanguage: currentSession.targetLanguage,
-        status: 'complete',
-        speakerCount: currentSession.speakerCount,
-        speakerLabels: currentSession.speakerLabels,
-      };
-
-      console.warn('[useMeetingSession] About to persist final session', {
-        sessionId: currentSession.id,
-        transcriptCount: currentSession.transcript.length,
-        translationCount: currentSession.translations.length,
-        speakerCount: currentSession.speakerCount,
-        speakerLabels: currentSession.speakerLabels,
-      });
-
-      await persistence.runInBatch(async () => {
-        await persistence.saveSession(finalSessionData);
-
-        const utterances: UtteranceData[] = currentSession.transcript.map((entry) => ({
-          id: entry.id,
-          sessionId: entry.sessionId,
-          timestamp: entry.timestamp,
-          isFinal: entry.isFinal,
-          sourceText: entry.sourceText,
-          sourceLanguage: entry.sourceLanguage,
-          translatedText: entry.translatedText,
-          translationLatencyMs:
-            currentSession.translations.find((translation) => translation.utteranceId === entry.id)?.latencyMs ?? null,
-          revision: entry.revision,
-          speakerId: entry.speakerId ?? null,
-          speakerLabel: entry.speakerLabel ?? null,
-        }));
-
-        console.warn('[useMeetingSession] Saving', utterances.length, 'utterances for session', currentSession.id);
-        for (const utterance of utterances) {
-          await persistence.saveUtterance(utterance);
-        }
-        console.warn('[useMeetingSession] All utterances saved');
-      });
-
-      // Verify session was saved by re-reading it immediately
-      const savedSession = await persistence.getSession(currentSession.id);
-      console.warn('[useMeetingSession] Saved session verification', {
-        sessionId: currentSession.id,
-        found: !!savedSession,
-        speakerCount: savedSession?.speakerCount,
-        speakerLabels: savedSession?.speakerLabels,
-        utteranceCount: savedSession ? (await persistence.getUtterances(savedSession.id)).length : 0,
-      });
-
-      const persistedSessionCheck = await persistence.getSession(currentSession.id);
-      if (!persistedSessionCheck) {
-        console.warn('[useMeetingSession] Final session missing after first save, retrying', currentSession.id);
-        await persistence.saveSession(finalSessionData);
-      }
-
-      if (Platform.OS === 'android') {
-        try {
-          await applyPostSessionDiarization(currentSession.id, sessionSamples);
-        } catch (error) {
-          warnLog('[useMeetingSession] Android post-session diarization failed; continuing to review screen:', error);
-        }
-        try {
-          await processDeferredTranslationsAfterMeeting(currentSession.id, currentSession.targetLanguage);
-        } catch (error) {
-          warnLog('[useMeetingSession] Android deferred translation finalization failed; continuing to review screen:', error);
-        }
-      } else {
-        await applyPostSessionDiarization(currentSession.id, sessionSamples);
-        await processDeferredTranslationsAfterMeeting(currentSession.id, currentSession.targetLanguage);
-      }
-
-      const latestSession = (await persistence.getSession(currentSession.id)) ?? finalSessionData;
-      const latestUtterances = await persistence.getUtterances(currentSession.id);
-
-      debugLog('[useMeetingSession] Meeting stopped');
+    if (!currentSession.id) {
       getSpeakerClusterService().reset();
       getSessionDiarizationWindowService().reset(0, 16000);
       getOfflineSpeakerDiarizationService().unload().catch(() => undefined);
       releaseSpeakerEmbeddingService();
       stoppingSessionRef.current = false;
-      return {
-        sessionId: currentSession.id,
-        fallbackSession: latestSession,
-        fallbackUtterances: latestUtterances,
-      };
+      return {sessionId: null, fallbackSession: null, fallbackUtterances: []};
     }
 
-    debugLog('[useMeetingSession] Meeting stopped');
-    getSpeakerClusterService().reset();
-    getSessionDiarizationWindowService().reset(0, 16000);
-    getOfflineSpeakerDiarizationService().unload().catch(() => undefined);
-    releaseSpeakerEmbeddingService();
-    stoppingSessionRef.current = false;
-    return {sessionId: null, fallbackSession: null, fallbackUtterances: []};
+    const endedAt = Date.now();
+    const finalSessionData: SessionData = {
+      id: currentSession.id,
+      startedAt: currentSession.startedAt ?? endedAt,
+      endedAt,
+      sourceLanguage: currentSession.sourceLanguage,
+      targetLanguage: currentSession.targetLanguage,
+      status: 'complete',
+      speakerCount: currentSession.speakerCount,
+      speakerLabels: currentSession.speakerLabels,
+    };
+
+    const utterances: UtteranceData[] = currentSession.transcript.map((entry) => ({
+      id: entry.id,
+      sessionId: entry.sessionId,
+      timestamp: entry.timestamp,
+      isFinal: entry.isFinal,
+      sourceText: entry.sourceText,
+      sourceLanguage: entry.sourceLanguage,
+      translatedText: entry.translatedText,
+      translationLatencyMs:
+        currentSession.translations.find((t) => t.utteranceId === entry.id)?.latencyMs ?? null,
+      revision: entry.revision,
+      speakerId: entry.speakerId ?? null,
+      speakerLabel: entry.speakerLabel ?? null,
+    }));
+
+    // Fast save: session + all utterances in parallel — user sees SessionReview immediately.
+    await persistence.saveSession(finalSessionData);
+    await Promise.all(utterances.map((u) => persistence.saveUtterance(u)));
+
+    debugLog('[useMeetingSession] Meeting stopped, navigating. Background post-processing will continue.');
+
+    // Heavy post-processing runs in the background after navigation.
+    // It updates speaker labels and deferred translations in the DB;
+    // SessionReview re-reads the session on focus if it needs the latest data.
+    const capturedSessionId = currentSession.id;
+    const capturedTargetLanguage = currentSession.targetLanguage;
+    ;(async () => {
+      try {
+        await applyPostSessionDiarization(capturedSessionId, sessionSamples);
+        await processDeferredTranslationsAfterMeeting(capturedSessionId, capturedTargetLanguage);
+      } catch (error) {
+        warnLog('[useMeetingSession] Background post-processing error:', error);
+      } finally {
+        getSpeakerClusterService().reset();
+        getSessionDiarizationWindowService().reset(0, 16000);
+        getOfflineSpeakerDiarizationService().unload().catch(() => undefined);
+        releaseSpeakerEmbeddingService();
+        stoppingSessionRef.current = false;
+      }
+    })().catch(() => undefined);
+
+    return {
+      sessionId: capturedSessionId,
+      fallbackSession: finalSessionData,
+      fallbackUtterances: utterances,
+    };
   }, [applyPostSessionDiarization, processDeferredTranslationsAfterMeeting, store]);
 
   return {
