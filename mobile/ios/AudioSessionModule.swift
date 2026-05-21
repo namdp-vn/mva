@@ -81,7 +81,7 @@ class AudioSessionModule: RCTEventEmitter {
         try session.setCategory(
           .playAndRecord,
           mode: .default,
-          options: [.allowBluetooth, .allowBluetoothA2DP, .defaultToSpeaker]
+          options: [.allowBluetoothA2DP, .defaultToSpeaker]
         )
         try session.setPreferredSampleRate(16_000)
         try session.setPreferredIOBufferDuration(0.02)
