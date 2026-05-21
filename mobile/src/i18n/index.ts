@@ -18,21 +18,8 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 };
 
 export function detectDeviceLanguage(): AppLanguage {
-  // 1. Intl.DateTimeFormat — reads ICU locale which iOS updates via
-  //    NSCurrentLocaleDidChangeNotification, even without app restart.
-  try {
-    if (typeof Intl !== 'undefined') {
-      const intlLocale = Intl.DateTimeFormat().resolvedOptions().locale;
-      if (intlLocale) {
-        const lang = intlLocale.split(/[-_]/)[0] as AppLanguage;
-        if (SUPPORTED_LANGUAGES.includes(lang)) {
-          return lang;
-        }
-      }
-    }
-  } catch {}
-
-  // 2. getLocales() (RN 0.73+) — reads NSLocale.preferredLanguages per-call.
+  // 1. getLocales() (RN 0.73+) — reads NSLocale.preferredLanguages, user's
+  //    actual language preference (independent of region setting).
   try {
     type Locale = {languageCode: string; countryCode?: string};
     const rn = require('react-native') as {getLocales?: () => Locale[]};
@@ -41,6 +28,20 @@ export function detectDeviceLanguage(): AppLanguage {
       const lang = locales[0].languageCode as AppLanguage;
       if (SUPPORTED_LANGUAGES.includes(lang)) {
         return lang;
+      }
+    }
+  } catch {}
+
+  // 2. Intl.DateTimeFormat — fallback only. On iOS this reads NSLocale.currentLocale
+  //    which is region-based and may differ from the language preference.
+  try {
+    if (typeof Intl !== 'undefined') {
+      const intlLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+      if (intlLocale) {
+        const lang = intlLocale.split(/[-_]/)[0] as AppLanguage;
+        if (SUPPORTED_LANGUAGES.includes(lang)) {
+          return lang;
+        }
       }
     }
   } catch {}
