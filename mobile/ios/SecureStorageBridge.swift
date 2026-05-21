@@ -47,9 +47,15 @@ final class SecureStorageBridge: NSObject {
       return SymmetricKey(data: existing)
     }
     let key = SymmetricKey(size: .bits256)
-    let data = key.withUnsafeBytes { Data(Array($0)) }
-    try saveKeyData(data)
-    return key
+    let keyData = key.withUnsafeBytes { Data(Array($0)) }
+    do {
+      try saveKeyData(keyData)
+      return key
+    } catch let err as NSError where err.code == Int(errSecDuplicateItem) {
+      // Race condition: another call saved the key between our load and save.
+      guard let existing = try loadKeyData() else { throw err }
+      return SymmetricKey(data: existing)
+    }
   }
 
   private func loadKeyData() throws -> Data? {

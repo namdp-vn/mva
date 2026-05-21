@@ -144,7 +144,18 @@ export const localStorage: AsyncStorageLike = {
     }
 
     const encryptedPayload = stored.slice(ENCRYPTED_PREFIX.length);
-    return decryptStoredValue(encryptedPayload);
+    try {
+      return await decryptStoredValue(encryptedPayload);
+    } catch {
+      // Keychain key lost or corrupted (e.g. device restore, Keychain access issue).
+      // Delete stale ciphertext so the next write starts fresh.
+      try {
+        const storage = getAsyncStorage();
+        if (storage) { await storage.removeItem(key); }
+        else { memoryStore.delete(key); }
+      } catch { /* ignore cleanup failure */ }
+      return null;
+    }
   },
   async setItem(key: string, value: string) {
     const payload = isSecureStorageBridgeAvailable()
