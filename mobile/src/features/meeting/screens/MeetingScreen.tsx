@@ -69,7 +69,6 @@ export function MeetingScreen(): React.JSX.Element {
   const targetLanguage = useTargetLanguage();
   const ttsEnabled = useTtsEnabled();
   const {setTtsEnabled} = useSettingsStore();
-  const {isSpeaking: isTtsSpeaking} = useTTSSpeaker(session.translations, isActive, targetLanguage);
 
   const {
     session,
@@ -90,6 +89,8 @@ export function MeetingScreen(): React.JSX.Element {
     isDegraded,
     degradedMessage,
   } = useMeetingSession();
+
+  const {isSpeaking: isTtsSpeaking} = useTTSSpeaker(session?.translations ?? [], isActive, targetLanguage);
 
   const isPaused = status === 'paused';
 
