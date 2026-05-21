@@ -588,6 +588,7 @@ export class RealSpeechRecognizer {
   async resume(): Promise<void> {
     if (!this.sessionId || !this.emitFn) return;
     this.interrupted = false;
+    await this.activateAudioSession(this.emitFn);
     await this.startMicStream();
   }
 

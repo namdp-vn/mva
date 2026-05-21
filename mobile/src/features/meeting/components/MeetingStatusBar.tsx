@@ -126,18 +126,16 @@ function LanguageBadge({language}: LanguageBadgeProps): React.JSX.Element {
   );
 }
 
-function ConnectivityIndicator({connectivity}: {connectivity: ConnectivityStatus}): React.JSX.Element {
+function ConnectivityIndicator({connectivity, compact}: {connectivity: ConnectivityStatus; compact?: boolean}): React.JSX.Element {
   const {theme} = useTheme();
   const {t} = useTranslation('meeting');
   const dotColor: string = theme.colors.success;
   const label = connectivity === 'online' ? t('statusBarOnDevice') : t('statusBarConnected');
-  const icon: IconName = 'check-circle';
 
   return (
     <View style={[styles.connectivityBadge, {backgroundColor: theme.colors.surface.secondary}]}>
       <View style={[styles.connectivityDot, {backgroundColor: dotColor}]} />
-      <AppIcon name={icon} size={12} color={dotColor} />
-      <Text style={[styles.connectivityText, {color: theme.colors.text.secondary}]}>{label}</Text>
+      {!compact && <Text style={[styles.connectivityText, {color: theme.colors.text.secondary}]}>{label}</Text>}
     </View>
   );
 }
@@ -260,7 +258,7 @@ export function MeetingStatusBar({
 
         {/* Right: Connectivity + TTS + pause + stop buttons */}
         <View style={styles.rightSection}>
-          <ConnectivityIndicator connectivity={connectivity} />
+          <ConnectivityIndicator connectivity={connectivity} compact={isCompactLive} />
           {isCompactLive && onToggleTts && (
             <TouchableOpacity
               style={[
@@ -280,20 +278,20 @@ export function MeetingStatusBar({
           )}
           {canPause && (
             <TouchableOpacity
-              style={[styles.iconButton, {backgroundColor: '#F59E0B22'}]}
+              style={[styles.iconButton, {backgroundColor: '#F59E0B'}]}
               onPress={onPauseMeeting}
               activeOpacity={0.8}
               accessibilityLabel={t('statusBarPauseLabel')}>
-              <AppIcon name="pause" size={12} color="#F59E0B" />
+              <AppIcon name="pause" size={12} color="#FFFFFF" />
             </TouchableOpacity>
           )}
           {canResume && (
             <TouchableOpacity
-              style={[styles.iconButton, {backgroundColor: '#16A34A22'}]}
+              style={[styles.iconButton, {backgroundColor: '#16A34A'}]}
               onPress={onResumeMeeting}
               activeOpacity={0.8}
               accessibilityLabel={t('resumeButtonLabel')}>
-              <AppIcon name="play" size={12} color="#16A34A" />
+              <AppIcon name="play" size={12} color="#FFFFFF" />
             </TouchableOpacity>
           )}
           {canStop && (
