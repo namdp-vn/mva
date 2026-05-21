@@ -157,8 +157,6 @@
     "aboutTranslation": "翻訳",
     "languageSelectorTitle": "翻訳先言語を選択",
     "appLanguageSelectorTitle": "アプリ言語を選択",
-    "autoLanguage": "自動",
-    "autoLanguageDesc": "端末の言語に従う",
     "modelRepositoryTitle": "AIモデル",
     "bundledModelsEyebrow": "バンドルモデル",
     "onDeviceAiTitle": "デバイス上のAI",

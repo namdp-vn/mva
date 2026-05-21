@@ -157,8 +157,6 @@
     "aboutTranslation": "번역",
     "languageSelectorTitle": "번역 대상 언어 선택",
     "appLanguageSelectorTitle": "앱 언어 선택",
-    "autoLanguage": "자동",
-    "autoLanguageDesc": "기기 언어 따르기",
     "modelRepositoryTitle": "AI 모델",
     "bundledModelsEyebrow": "번들 모델",
     "onDeviceAiTitle": "기기 내 AI",

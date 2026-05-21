@@ -71,14 +71,9 @@ interface SettingsState {
   /** STT engine: SenseVoice (EN/JA/KO/ZH). */
   sttEngine: SttEngineType;
   setSttEngine: (engine: SttEngineType) => void;
-  /** App UI language — auto-detected from device locale on first run. */
+  /** App UI language — detected from device on first install, then only changed via app settings. */
   appLanguage: AppLanguage;
   setAppLanguage: (lang: AppLanguage) => void;
-  /** True when app should follow device language automatically (user hasn't picked manually). */
-  appLanguageIsAuto: boolean;
-  setAppLanguageAuto: (lang: AppLanguage) => void;
-  /** Reset to auto mode: re-detect device language and clear manual override. */
-  resetToAutoLanguage: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -97,23 +92,13 @@ export const useSettingsStore = create<SettingsState>()(
       setSttEngine: (engine) => set({sttEngine: engine}),
       appLanguage: detectDeviceLanguage(),
       setAppLanguage: (lang) => {
-        set({appLanguage: lang, appLanguageIsAuto: false});
-        changeAppLanguage(lang);
-      },
-      appLanguageIsAuto: true,
-      setAppLanguageAuto: (lang) => {
         set({appLanguage: lang});
-        changeAppLanguage(lang);
-      },
-      resetToAutoLanguage: () => {
-        const lang = detectDeviceLanguage();
-        set({appLanguage: lang, appLanguageIsAuto: true});
         changeAppLanguage(lang);
       },
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -122,7 +107,6 @@ export const useSettingsStore = create<SettingsState>()(
         diarizationThreshold: state.diarizationThreshold,
         sttEngine: state.sttEngine,
         appLanguage: state.appLanguage,
-        appLanguageIsAuto: state.appLanguageIsAuto,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -142,7 +126,6 @@ export const useSettingsStore = create<SettingsState>()(
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
           appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
-          appLanguageIsAuto: version < 6 ? true : ((state as SettingsState).appLanguageIsAuto ?? true),
         } as SettingsState;
       },
     }
@@ -155,4 +138,3 @@ export const useTargetLanguage = () => useSettingsStore((state) => state.targetL
 export const useDiarizationThreshold = () => useSettingsStore((state) => state.diarizationThreshold);
 export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
 export const useAppLanguage = () => useSettingsStore((state) => state.appLanguage);
-export const useAppLanguageIsAuto = () => useSettingsStore((state) => state.appLanguageIsAuto);

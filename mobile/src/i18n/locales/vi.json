@@ -157,8 +157,6 @@
     "aboutTranslation": "Dịch thuật",
     "languageSelectorTitle": "Chọn ngôn ngữ dịch",
     "appLanguageSelectorTitle": "Chọn ngôn ngữ ứng dụng",
-    "autoLanguage": "Tự động",
-    "autoLanguageDesc": "Theo ngôn ngữ máy",
     "modelRepositoryTitle": "Mô hình AI",
     "bundledModelsEyebrow": "Mô hình tích hợp",
     "onDeviceAiTitle": "AI trên thiết bị",

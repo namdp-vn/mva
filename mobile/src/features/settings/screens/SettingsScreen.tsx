@@ -34,7 +34,6 @@ import {
   TARGET_LANGUAGE_OPTIONS,
   getLanguageOption,
   useAppLanguage,
-  useAppLanguageIsAuto,
 } from '../../../shared/store';
 import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
 import {
@@ -82,8 +81,7 @@ export function SettingsScreen(): React.JSX.Element {
 
   const {t} = useTranslation('settings');
   const appLanguage = useAppLanguage();
-  const appLanguageIsAuto = useAppLanguageIsAuto();
-  const {setAppLanguage, resetToAutoLanguage} = useSettingsStore();
+  const {setAppLanguage} = useSettingsStore();
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
@@ -290,7 +288,7 @@ export function SettingsScreen(): React.JSX.Element {
               <View style={[styles.languageSelector, {backgroundColor: theme.colors.surface.container}]}>
                 <Text style={styles.languageFlag}>{LANGUAGE_LABELS[appLanguage]?.flag ?? '🌐'}</Text>
                 <Text style={[styles.languageCode, {color: theme.colors.text.primary}]}>
-                  {appLanguageIsAuto ? t('autoLanguage') : appLanguage.toUpperCase()}
+                  {appLanguage.toUpperCase()}
                 </Text>
                 <AppIcon name="chevron-down" size={16} color={theme.colors.text.tertiary} />
               </View>
@@ -698,31 +696,6 @@ export function SettingsScreen(): React.JSX.Element {
           onPress={() => setAppLangSelectorVisible(false)}>
           <View style={[styles.modalContent, {backgroundColor: theme.colors.surface.primary}]}>
             <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>{t('appLanguageSelectorTitle')}</Text>
-            {/* Auto option */}
-            <TouchableOpacity
-              style={[
-                styles.langOption,
-                {borderBottomWidth: 1, borderBottomColor: theme.colors.border.subtle},
-                appLanguageIsAuto && {backgroundColor: theme.colors.surface.container},
-              ]}
-              onPress={() => {
-                resetToAutoLanguage();
-                setAppLangSelectorVisible(false);
-              }}
-              activeOpacity={0.7}>
-              <Text style={styles.langOptionFlag}>🔄</Text>
-              <View style={styles.langOptionInfo}>
-                <Text style={[styles.langOptionNative, {color: theme.colors.text.primary}]}>
-                  {t('autoLanguage')}
-                </Text>
-                <Text style={[styles.langOptionLabel, {color: theme.colors.text.tertiary}]}>
-                  {t('autoLanguageDesc')}
-                </Text>
-              </View>
-              {appLanguageIsAuto && (
-                <AppIcon name="check-circle" size={20} color={theme.colors.primary} />
-              )}
-            </TouchableOpacity>
             {SUPPORTED_LANGUAGES.map((langCode, index) => {
               const info = LANGUAGE_LABELS[langCode as AppLanguage];
               return (
@@ -731,7 +704,7 @@ export function SettingsScreen(): React.JSX.Element {
                   style={[
                     styles.langOption,
                     index < SUPPORTED_LANGUAGES.length - 1 && {borderBottomWidth: 1, borderBottomColor: theme.colors.border.subtle},
-                    !appLanguageIsAuto && appLanguage === langCode && {backgroundColor: theme.colors.surface.container},
+                    appLanguage === langCode && {backgroundColor: theme.colors.surface.container},
                   ]}
                   onPress={() => {
                     setAppLanguage(langCode as AppLanguage);
@@ -747,7 +720,7 @@ export function SettingsScreen(): React.JSX.Element {
                       {info?.label ?? langCode}
                     </Text>
                   </View>
-                  {!appLanguageIsAuto && appLanguage === langCode && (
+                  {appLanguage === langCode && (
                     <AppIcon name="check-circle" size={20} color={theme.colors.primary} />
                   )}
                 </TouchableOpacity>

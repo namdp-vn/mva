@@ -157,8 +157,6 @@
     "aboutTranslation": "Translation",
     "languageSelectorTitle": "Select Target Language",
     "appLanguageSelectorTitle": "Select App Language",
-    "autoLanguage": "Auto",
-    "autoLanguageDesc": "Follow device language",
     "modelRepositoryTitle": "AI Models",
     "bundledModelsEyebrow": "Bundled Models",
     "onDeviceAiTitle": "On-device AI",
