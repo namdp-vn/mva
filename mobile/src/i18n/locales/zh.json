@@ -157,6 +157,8 @@
     "aboutTranslation": "翻译",
     "languageSelectorTitle": "选择翻译目标语言",
     "appLanguageSelectorTitle": "选择应用语言",
+    "autoLanguage": "自动",
+    "autoLanguageDesc": "跟随设备语言",
     "modelRepositoryTitle": "AI 模型",
     "bundledModelsEyebrow": "内置模型",
     "onDeviceAiTitle": "设备端 AI",

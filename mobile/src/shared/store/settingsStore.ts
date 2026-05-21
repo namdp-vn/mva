@@ -77,6 +77,8 @@ interface SettingsState {
   /** True when app should follow device language automatically (user hasn't picked manually). */
   appLanguageIsAuto: boolean;
   setAppLanguageAuto: (lang: AppLanguage) => void;
+  /** Reset to auto mode: re-detect device language and clear manual override. */
+  resetToAutoLanguage: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -101,6 +103,11 @@ export const useSettingsStore = create<SettingsState>()(
       appLanguageIsAuto: true,
       setAppLanguageAuto: (lang) => {
         set({appLanguage: lang});
+        changeAppLanguage(lang);
+      },
+      resetToAutoLanguage: () => {
+        const lang = detectDeviceLanguage();
+        set({appLanguage: lang, appLanguageIsAuto: true});
         changeAppLanguage(lang);
       },
     }),
