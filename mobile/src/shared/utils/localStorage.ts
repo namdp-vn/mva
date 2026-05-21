@@ -158,9 +158,16 @@ export const localStorage: AsyncStorageLike = {
     }
   },
   async setItem(key: string, value: string) {
-    const payload = isSecureStorageBridgeAvailable()
-      ? `${ENCRYPTED_PREFIX}${await encryptStoredValue(value)}`
-      : value;
+    let payload: string;
+    try {
+      payload = isSecureStorageBridgeAvailable()
+        ? `${ENCRYPTED_PREFIX}${await encryptStoredValue(value)}`
+        : value;
+    } catch {
+      // Encryption failed (Keychain unavailable). Store plaintext to preserve data —
+      // settings are non-sensitive config and must not be silently lost.
+      payload = value;
+    }
     try {
       const storage = getAsyncStorage();
       if (!storage) {

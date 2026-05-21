@@ -18,11 +18,22 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 };
 
 export function detectDeviceLanguage(): AppLanguage {
-  // 1. iOS NSUserDefaults AppleLanguages — the raw iOS preferred-language list,
-  //    independent of Region. Most reliable source on iOS.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {NativeModules, Platform} = require('react-native') as typeof import('react-native');
+
+  // 1. LocaleModule — native Swift reads NSLocale.preferredLanguages[0] directly.
+  //    This is the most reliable source: reflects the user's preferred language list,
+  //    NOT the device Region. e.g. returns "en" for EN speaker in VN region.
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {NativeModules, Platform} = require('react-native') as typeof import('react-native');
+    const code = (NativeModules.LocaleModule as {languageCode?: string} | undefined)?.languageCode;
+    if (code) {
+      const lang = code.split(/[-_]/)[0] as AppLanguage;
+      if (SUPPORTED_LANGUAGES.includes(lang)) return lang;
+    }
+  } catch {}
+
+  // 2. iOS NSUserDefaults AppleLanguages (fallback for older bridge setups).
+  try {
     if (Platform.OS === 'ios') {
       const settings = (NativeModules.SettingsManager as {settings?: Record<string, unknown>} | undefined)?.settings;
       const appleLanguages = settings?.AppleLanguages;
@@ -33,7 +44,7 @@ export function detectDeviceLanguage(): AppLanguage {
     }
   } catch {}
 
-  // 2. getLocales() (RN 0.73+) — cross-platform, reads NSLocale.preferredLanguages.
+  // 3. getLocales() — available if react-native-localize or similar is installed.
   try {
     type Locale = {languageCode: string; countryCode?: string};
     const rn = require('react-native') as {getLocales?: () => Locale[]};
