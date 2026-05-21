@@ -21,6 +21,12 @@
 		A1B2C3D91A68108700A75B9A /* AudioSessionModule.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3DB1A68108700A75B9A /* AudioSessionModule.m */; };
 		C2F25943E3FD86D907200F26 /* libPods-VibeVoiceNative.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6672930B79FFB844E82C116B /* libPods-VibeVoiceNative.a */; };
 		D11E32137247258732D4CB5A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		B1C3D4E01A68108700A75B9A /* LocaleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C3D4E21A68108700A75B9A /* LocaleModule.swift */; };
+		B1C3D4E11A68108700A75B9A /* LocaleModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B1C3D4E31A68108700A75B9A /* LocaleModule.m */; };
+		B2C3D4E01A68108700A75B9A /* TTSSpeakerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E21A68108700A75B9A /* TTSSpeakerModule.swift */; };
+		B2C3D4E11A68108700A75B9A /* TTSSpeakerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E31A68108700A75B9A /* TTSSpeakerModule.m */; };
+		B3C3D4E01A68108700A75B9A /* SecureStorageBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C3D4E21A68108700A75B9A /* SecureStorageBridge.swift */; };
+		B3C3D4E11A68108700A75B9A /* SecureStorageBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = B3C3D4E31A68108700A75B9A /* SecureStorageBridge.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +47,12 @@
 		A1B2C3D31A68108700A75B9A /* AppleTranslatorModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppleTranslatorModule.m; sourceTree = "<group>"; };
 		A1B2C3DA1A68108700A75B9A /* AudioSessionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionModule.swift; sourceTree = "<group>"; };
 		A1B2C3DB1A68108700A75B9A /* AudioSessionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AudioSessionModule.m; sourceTree = "<group>"; };
+		B1C3D4E21A68108700A75B9A /* LocaleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocaleModule.swift; sourceTree = "<group>"; };
+		B1C3D4E31A68108700A75B9A /* LocaleModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LocaleModule.m; sourceTree = "<group>"; };
+		B2C3D4E21A68108700A75B9A /* TTSSpeakerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSSpeakerModule.swift; sourceTree = "<group>"; };
+		B2C3D4E31A68108700A75B9A /* TTSSpeakerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TTSSpeakerModule.m; sourceTree = "<group>"; };
+		B3C3D4E21A68108700A75B9A /* SecureStorageBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStorageBridge.swift; sourceTree = "<group>"; };
+		B3C3D4E31A68108700A75B9A /* SecureStorageBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SecureStorageBridge.m; sourceTree = "<group>"; };
 		CF9CA4B0C26C8EE8919A3801 /* Pods-VibeVoiceNative.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VibeVoiceNative.debug.xcconfig"; path = "Target Support Files/Pods-VibeVoiceNative/Pods-VibeVoiceNative.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
@@ -71,6 +83,12 @@
 				76F100022DC00002006654EE /* SpeakerEmbeddingModule.m */,
 				76F100042DC00003006654EE /* OfflineSpeakerDiarizationModule.swift */,
 				76F100062DC00004006654EE /* OfflineSpeakerDiarizationModule.m */,
+				B1C3D4E21A68108700A75B9A /* LocaleModule.swift */,
+				B1C3D4E31A68108700A75B9A /* LocaleModule.m */,
+				B2C3D4E21A68108700A75B9A /* TTSSpeakerModule.swift */,
+				B2C3D4E31A68108700A75B9A /* TTSSpeakerModule.m */,
+				B3C3D4E21A68108700A75B9A /* SecureStorageBridge.swift */,
+				B3C3D4E31A68108700A75B9A /* SecureStorageBridge.m */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -283,6 +301,12 @@
 				76F100032DC00002006654EE /* SpeakerEmbeddingModule.m in Sources */,
 				76F100052DC00003006654EE /* OfflineSpeakerDiarizationModule.swift in Sources */,
 				76F100072DC00004006654EE /* OfflineSpeakerDiarizationModule.m in Sources */,
+				B1C3D4E01A68108700A75B9A /* LocaleModule.swift in Sources */,
+				B1C3D4E11A68108700A75B9A /* LocaleModule.m in Sources */,
+				B2C3D4E01A68108700A75B9A /* TTSSpeakerModule.swift in Sources */,
+				B2C3D4E11A68108700A75B9A /* TTSSpeakerModule.m in Sources */,
+				B3C3D4E01A68108700A75B9A /* SecureStorageBridge.swift in Sources */,
+				B3C3D4E11A68108700A75B9A /* SecureStorageBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
