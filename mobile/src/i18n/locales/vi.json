@@ -107,6 +107,8 @@
     "packInstalled": "Đã cài",
     "packDownload": "Tải xuống",
     "packUnavailable": "Không có",
+    "iosVersionWarningTitle": "Dịch thuật không khả dụng",
+    "iosVersionWarningDesc": "Apple Translation yêu cầu iOS 18 trở lên. Thiết bị đang chạy iOS {{version}} — tính năng dịch không hoạt động.",
     "sectionAppearance": "Giao diện",
     "settingTheme": "Chủ đề",
     "settingThemeDesc": "Chọn cách hiển thị ứng dụng trên tất cả màn hình.",

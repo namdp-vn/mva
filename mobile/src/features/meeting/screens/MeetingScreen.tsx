@@ -41,6 +41,7 @@ import {TranscriptLane} from '../components/TranscriptLane';
 import {TranslationLane} from '../components/TranslationLane';
 import {useMeetingSession} from '../hooks/useMeetingSession';
 import {requestAudioPermission} from '../../../shared/utils/permissions';
+import {isAppleTranslationAvailable} from '../../../shared/utils/platformSupport';
 import {arePacksDownloaded} from '../../../services/languagePackStatus';
 import {activateKeepAwake, deactivateKeepAwake} from '../../../native/keepAwake';
 import type {SessionStatus, ConnectivityStatus} from '../state/meetingStore';
@@ -232,7 +233,7 @@ export function MeetingScreen(): React.JSX.Element {
       return;
     }
 
-    if (Platform.OS === 'ios' && arePacksDownloaded() === false) {
+    if (Platform.OS === 'ios' && isAppleTranslationAvailable() && arePacksDownloaded() === false) {
       Alert.alert(
         t('packNotDownloadedTitle'),
         t('packNotDownloadedMessage'),

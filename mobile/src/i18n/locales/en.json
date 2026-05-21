@@ -107,6 +107,8 @@
     "packInstalled": "Installed",
     "packDownload": "Download",
     "packUnavailable": "N/A",
+    "iosVersionWarningTitle": "Translation unavailable",
+    "iosVersionWarningDesc": "Apple Translation requires iOS 18 or later. This device runs iOS {{version}} — translation will not work.",
     "sectionAppearance": "Appearance",
     "settingTheme": "Theme",
     "settingThemeDesc": "Choose how the app appears across all screens.",

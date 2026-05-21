@@ -107,6 +107,8 @@
     "packInstalled": "설치됨",
     "packDownload": "다운로드",
     "packUnavailable": "해당 없음",
+    "iosVersionWarningTitle": "번역을 사용할 수 없음",
+    "iosVersionWarningDesc": "Apple 번역은 iOS 18 이상이 필요합니다. 이 기기는 iOS {{version}}을 실행 중입니다 — 번역이 작동하지 않습니다.",
     "sectionAppearance": "외관",
     "settingTheme": "테마",
     "settingThemeDesc": "모든 화면에서 앱이 표시되는 방식을 선택합니다.",

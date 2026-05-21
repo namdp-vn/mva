@@ -7,6 +7,7 @@
 
 import {useCallback, useEffect, useRef} from 'react';
 import {Platform} from 'react-native';
+import {isAppleTranslationAvailable, getIOSVersion} from '../../../shared/utils/platformSupport';
 import {useMeetingStore, TranscriptEntry, MeetingSession} from '../state/meetingStore';
 
 import {
@@ -1375,11 +1376,13 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     pipelineStatus: store.pipelineStatus,
     pipelineError: store.pipelineError,
     isOffline: false,
-    isDegraded: IOS_DEBUG_TRANSLATION_SAFE_MODE || getOnDeviceTranslator().isSuppressedForMemoryPressure(),
-    degradedMessage: IOS_DEBUG_TRANSLATION_SAFE_MODE
-      ? 'Live translation is deferred during recording on iOS debug builds to keep the meeting stable. Transcript stays real-time, and queued translations finish automatically after you stop the meeting.'
-      : getOnDeviceTranslator().isSuppressedForMemoryPressure()
-        ? `Translation paused temporarily while the device frees memory. Live translation will resume automatically in about ${Math.max(1, Math.ceil(getOnDeviceTranslator().getMemoryPressureCooldownRemainingMs() / 1000))}s.`
-        : null,
+    isDegraded: IOS_DEBUG_TRANSLATION_SAFE_MODE || getOnDeviceTranslator().isSuppressedForMemoryPressure() || (Platform.OS === 'ios' && !isAppleTranslationAvailable()),
+    degradedMessage: (Platform.OS === 'ios' && !isAppleTranslationAvailable())
+      ? `Translation is not available on iOS ${getIOSVersion()}. iOS 18 or later is required.`
+      : IOS_DEBUG_TRANSLATION_SAFE_MODE
+        ? 'Live translation is deferred during recording on iOS debug builds to keep the meeting stable. Transcript stays real-time, and queued translations finish automatically after you stop the meeting.'
+        : getOnDeviceTranslator().isSuppressedForMemoryPressure()
+          ? `Translation paused temporarily while the device frees memory. Live translation will resume automatically in about ${Math.max(1, Math.ceil(getOnDeviceTranslator().getMemoryPressureCooldownRemainingMs() / 1000))}s.`
+          : null,
   };
 }

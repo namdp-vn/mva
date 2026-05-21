@@ -50,6 +50,7 @@ import {getSpeakerClusterService, type SpeakerClusterConfig} from '../../../serv
 import {spacing, borderRadius, typography} from '../../../shared/constants';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
 import {Platform} from 'react-native';
+import {isAppleTranslationAvailable, getIOSVersion} from '../../../shared/utils/platformSupport';
 
 type SettingsNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -475,6 +476,19 @@ export function SettingsScreen(): React.JSX.Element {
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacks')}</Text>
             <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>{t('sectionLanguagePacksSubtitle')}</Text>
+
+            {!isAppleTranslationAvailable() && (
+              <View style={[styles.iosWarningBanner, {backgroundColor: theme.colors.error + '18', borderColor: theme.colors.error + '50'}]}>
+                <AppIcon name="error" size={18} color={theme.colors.error} />
+                <View style={styles.iosWarningText}>
+                  <Text style={[styles.iosWarningTitle, {color: theme.colors.error}]}>{t('iosVersionWarningTitle')}</Text>
+                  <Text style={[styles.iosWarningDesc, {color: theme.colors.text.secondary}]}>
+                    {t('iosVersionWarningDesc', {version: getIOSVersion()})}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
               {LANG_PACKS.map(({srcLang, flag, labelKey, toKey}, index) => {
                 const status = packStatuses[srcLang];
@@ -1309,6 +1323,29 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     textTransform: 'uppercase',
     letterSpacing: typography.letterSpacing.widest,
+  },
+  iosWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  iosWarningText: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  iosWarningTitle: {
+    fontFamily: typography.fontFamily.headline,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+  },
+  iosWarningDesc: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.xs,
+    lineHeight: typography.fontSize.xs * typography.lineHeight.relaxed,
   },
   packRow: {
     flexDirection: 'row',

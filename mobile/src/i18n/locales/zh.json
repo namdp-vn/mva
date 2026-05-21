@@ -107,6 +107,8 @@
     "packInstalled": "已安装",
     "packDownload": "下载",
     "packUnavailable": "不适用",
+    "iosVersionWarningTitle": "翻译不可用",
+    "iosVersionWarningDesc": "Apple翻译需要iOS 18或更高版本。此设备运行iOS {{version}} — 翻译将无法工作。",
     "sectionAppearance": "外观",
     "settingTheme": "主题",
     "settingThemeDesc": "选择应用在所有屏幕上的显示方式。",
