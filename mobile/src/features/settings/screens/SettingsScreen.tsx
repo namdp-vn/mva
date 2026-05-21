@@ -34,7 +34,10 @@ import {
   TARGET_LANGUAGE_OPTIONS,
   getLanguageOption,
   useAppLanguage,
+  useTtsEnabled,
+  useTtsRate,
 } from '../../../shared/store';
+import type {TtsRate} from '../../../shared/store/settingsStore';
 import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
 import {
   formatDiarizationThreshold,
@@ -82,6 +85,9 @@ export function SettingsScreen(): React.JSX.Element {
   const {t} = useTranslation('settings');
   const appLanguage = useAppLanguage();
   const {setAppLanguage} = useSettingsStore();
+  const ttsEnabled = useTtsEnabled();
+  const ttsRate = useTtsRate();
+  const {setTtsEnabled, setTtsRate} = useSettingsStore();
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
@@ -347,6 +353,75 @@ export function SettingsScreen(): React.JSX.Element {
             </View>
           </View>
         </View>
+
+        {/* Voice Output Section (iOS only) */}
+        {Platform.OS === 'ios' && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, {color: theme.colors.text.tertiary}]}>{t('sectionVoiceOutput')}</Text>
+            <Text style={[styles.sectionSubtitle, {color: theme.colors.text.tertiary}]}>{t('sectionVoiceOutputSubtitle')}</Text>
+
+            <View style={[styles.card, {backgroundColor: theme.colors.surface.primary}]}>
+              {/* Read aloud toggle */}
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsEnabled')}</Text>
+                  <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('ttsEnabledDesc')}</Text>
+                </View>
+                <Switch
+                  value={ttsEnabled}
+                  onValueChange={setTtsEnabled}
+                  trackColor={{false: theme.colors.border.subtle, true: theme.colors.primary + '80'}}
+                  thumbColor={ttsEnabled ? theme.colors.primary : theme.colors.text.tertiary}
+                />
+              </View>
+
+              {/* Sub-options — visible only when enabled */}
+              {ttsEnabled && (
+                <>
+                  <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+
+                  {/* Speaking rate */}
+                  <View style={[styles.settingRow, {opacity: ttsEnabled ? 1 : 0.4}]}>
+                    <View style={styles.settingInfo}>
+                      <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsSpeakingRate')}</Text>
+                    </View>
+                    <View style={styles.segmentedControl}>
+                      {(['slow', 'normal', 'fast'] as TtsRate[]).map((r) => (
+                        <TouchableOpacity
+                          key={r}
+                          style={[
+                            styles.segmentItem,
+                            {backgroundColor: ttsRate === r
+                              ? theme.colors.primary
+                              : theme.colors.surface.secondary},
+                          ]}
+                          onPress={() => setTtsRate(r)}
+                          activeOpacity={0.8}>
+                          <Text style={[styles.segmentText, {color: ttsRate === r ? '#FFFFFF' : theme.colors.text.secondary}]}>
+                            {t(`ttsRate${r.charAt(0).toUpperCase() + r.slice(1)}` as any)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+
+                  {/* Voice engine info */}
+                  <View style={styles.settingRow}>
+                    <View style={styles.settingInfo}>
+                      <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsVoiceEngine')}</Text>
+                      <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('ttsComingSoon')}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '40'}]}>
+                      <Text style={[styles.statusBadgeText, {color: theme.colors.primary}]}>{t('ttsVoiceEngineDesc')}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* AI Models Section */}
         <View style={styles.section}>
@@ -1279,6 +1354,24 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.mono,
     fontSize: 9,
     textAlign: 'center',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    gap: 2,
+  },
+  segmentItem: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentText: {
+    fontFamily: typography.fontFamily.label,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
   },
 });
 

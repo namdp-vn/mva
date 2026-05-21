@@ -71,7 +71,8 @@
     "statusBarConnected": "연결됨",
     "tabMeetings": "회의",
     "tabLive": "라이브",
-    "tabNetwork": "네트워크"
+    "tabNetwork": "네트워크",
+    "ttsToggleLabel": "읽기 토글"
   },
   "settings": {
     "title": "설정",
@@ -177,7 +178,18 @@
     "modelRemoveConfirm": "제거",
     "modelPrepareFailTitle": "준비 실패",
     "modelRemoveFailTitle": "제거 실패",
-    "modelStatusMissing": "없음"
+    "modelStatusMissing": "없음",
+    "sectionVoiceOutput": "음성 출력",
+    "sectionVoiceOutputSubtitle": "번역 내용을 이어폰으로 읽어줍니다.",
+    "ttsEnabled": "번역 소리내어 읽기",
+    "ttsEnabledDesc": "이어폰으로 재생",
+    "ttsSpeakingRate": "말하기 속도",
+    "ttsRateSlow": "느리게",
+    "ttsRateNormal": "보통",
+    "ttsRateFast": "빠르게",
+    "ttsVoiceEngine": "음성 엔진",
+    "ttsVoiceEngineDesc": "시스템 iOS",
+    "ttsComingSoon": "Supertonic & VITS 곧 출시"
   },
   "history": {
     "appTitle": "Executive MVA",

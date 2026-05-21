@@ -2,6 +2,7 @@ import {localStorage as AsyncStorage} from '../utils/localStorage';
 import {create} from 'zustand';
 import {createJSONStorage, persist} from 'zustand/middleware';
 import {type AppLanguage, detectDeviceLanguage, changeAppLanguage} from '../../i18n';
+import type {TtsRate} from '../../services/tts/TTSService';
 
 export type AppThemeMode = 'system' | 'dark' | 'light';
 
@@ -74,6 +75,12 @@ interface SettingsState {
   /** App UI language — detected from device on first install, then only changed via app settings. */
   appLanguage: AppLanguage;
   setAppLanguage: (lang: AppLanguage) => void;
+  /** Read translations aloud through earphones (default: false) */
+  ttsEnabled: boolean;
+  setTtsEnabled: (v: boolean) => void;
+  /** TTS playback rate (default: 'normal') */
+  ttsRate: TtsRate;
+  setTtsRate: (r: TtsRate) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -95,10 +102,14 @@ export const useSettingsStore = create<SettingsState>()(
         set({appLanguage: lang});
         changeAppLanguage(lang);
       },
+      ttsEnabled: false,
+      setTtsEnabled: (v) => set({ttsEnabled: v}),
+      ttsRate: 'normal',
+      setTtsRate: (r) => set({ttsRate: r}),
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 7,
+      version: 8,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -107,6 +118,8 @@ export const useSettingsStore = create<SettingsState>()(
         diarizationThreshold: state.diarizationThreshold,
         sttEngine: state.sttEngine,
         appLanguage: state.appLanguage,
+        ttsEnabled: state.ttsEnabled,
+        ttsRate: state.ttsRate,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -126,6 +139,8 @@ export const useSettingsStore = create<SettingsState>()(
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
           appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
+          ttsEnabled: (state as SettingsState).ttsEnabled ?? false,
+          ttsRate: (state as SettingsState).ttsRate ?? 'normal',
         } as SettingsState;
       },
     }
@@ -138,3 +153,6 @@ export const useTargetLanguage = () => useSettingsStore((state) => state.targetL
 export const useDiarizationThreshold = () => useSettingsStore((state) => state.diarizationThreshold);
 export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
 export const useAppLanguage = () => useSettingsStore((state) => state.appLanguage);
+export const useTtsEnabled = () => useSettingsStore((state) => state.ttsEnabled);
+export const useTtsRate = () => useSettingsStore((state) => state.ttsRate);
+export type {TtsRate};

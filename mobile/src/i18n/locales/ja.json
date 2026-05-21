@@ -71,7 +71,8 @@
     "statusBarConnected": "接続済み",
     "tabMeetings": "会議",
     "tabLive": "ライブ",
-    "tabNetwork": "ネットワーク"
+    "tabNetwork": "ネットワーク",
+    "ttsToggleLabel": "読み上げ切り替え"
   },
   "settings": {
     "title": "設定",
@@ -177,7 +178,18 @@
     "modelRemoveConfirm": "削除",
     "modelPrepareFailTitle": "準備に失敗しました",
     "modelRemoveFailTitle": "削除に失敗しました",
-    "modelStatusMissing": "未インストール"
+    "modelStatusMissing": "未インストール",
+    "sectionVoiceOutput": "音声出力",
+    "sectionVoiceOutputSubtitle": "翻訳をイヤホンで読み上げます。",
+    "ttsEnabled": "翻訳を読み上げる",
+    "ttsEnabledDesc": "イヤホンで再生",
+    "ttsSpeakingRate": "読み上げ速度",
+    "ttsRateSlow": "ゆっくり",
+    "ttsRateNormal": "普通",
+    "ttsRateFast": "速く",
+    "ttsVoiceEngine": "音声エンジン",
+    "ttsVoiceEngineDesc": "システム iOS",
+    "ttsComingSoon": "Supertonic & VITS 近日公開"
   },
   "history": {
     "appTitle": "Executive MVA",

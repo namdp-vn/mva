@@ -159,6 +159,9 @@ export interface MeetingStatusBarProps {
   currentLanguage?: string;
   developerMode?: boolean;
   speakerDebug?: string | null;
+  ttsEnabled?: boolean;
+  isTtsSpeaking?: boolean;
+  onToggleTts?: () => void;
 }
 
 export function MeetingStatusBar({
@@ -174,6 +177,9 @@ export function MeetingStatusBar({
   currentLanguage = 'EN',
   developerMode = false,
   speakerDebug = null,
+  ttsEnabled = false,
+  isTtsSpeaking = false,
+  onToggleTts,
 }: MeetingStatusBarProps): React.JSX.Element {
   const {theme} = useTheme();
   const {t} = useTranslation('meeting');
@@ -252,9 +258,26 @@ export function MeetingStatusBar({
           {(isRecording || isPaused) && <LanguageBadge language={currentLanguage} />}
         </View>
 
-        {/* Right: Connectivity + pause + stop buttons */}
+        {/* Right: Connectivity + TTS + pause + stop buttons */}
         <View style={styles.rightSection}>
           <ConnectivityIndicator connectivity={connectivity} />
+          {isCompactLive && onToggleTts && (
+            <TouchableOpacity
+              style={[
+                styles.iconButton,
+                {backgroundColor: ttsEnabled
+                  ? theme.colors.primary + '33'
+                  : theme.colors.surface.secondary},
+              ]}
+              onPress={onToggleTts}
+              activeOpacity={0.8}
+              accessibilityLabel={t('ttsToggleLabel')}>
+              <AppIcon name="headphones" size={12} color={ttsEnabled ? theme.colors.primary : theme.colors.text.tertiary} />
+              {ttsEnabled && isTtsSpeaking && (
+                <View style={[styles.speakingDot, {backgroundColor: theme.colors.success}]} />
+              )}
+            </TouchableOpacity>
+          )}
           {canPause && (
             <TouchableOpacity
               style={[styles.iconButton, {backgroundColor: '#F59E0B22'}]}
@@ -422,6 +445,14 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  speakingDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });
 

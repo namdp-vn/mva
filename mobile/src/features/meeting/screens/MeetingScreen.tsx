@@ -31,7 +31,10 @@ import {useTheme} from '../../../shared/hooks/useTheme';
 import {RootStackParamList} from '../../../app/navigation/router';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
 import {useBootstrapStore, useModelState, usePrewarmState, useTranslatorModelState} from '../../../shared/store';
-import {useDeveloperMode, useTargetLanguage} from '../../../shared/store/settingsStore';
+import {useDeveloperMode, useTargetLanguage, useTtsEnabled} from '../../../shared/store/settingsStore';
+import {useSettingsStore} from '../../../shared/store';
+import {ttsService} from '../../../services/tts/TTSService';
+import {useTTSSpeaker} from '../hooks/useTTSSpeaker';
 import {MeetingStatusBar} from '../components/MeetingStatusBar';
 import {DeveloperMetricsOverlay} from '../components/DeveloperMetricsOverlay/DeveloperMetricsOverlay';
 import {TranscriptLane} from '../components/TranscriptLane';
@@ -64,6 +67,9 @@ export function MeetingScreen(): React.JSX.Element {
   const developerMode = useDeveloperMode();
   const {speakerDebug} = useDeveloperMetrics();
   const targetLanguage = useTargetLanguage();
+  const ttsEnabled = useTtsEnabled();
+  const {setTtsEnabled} = useSettingsStore();
+  const {isSpeaking: isTtsSpeaking} = useTTSSpeaker(session.translations, isActive, targetLanguage);
 
   const {
     session,
@@ -175,6 +181,7 @@ export function MeetingScreen(): React.JSX.Element {
     if (!confirmed) return;
 
     console.warn('[MeetingScreen] handleStopMeeting: confirmed, starting stop');
+    ttsService.stop();
     setIsStopping(true);
     try {
       console.warn('[MeetingScreen] calling stopMeeting()...');
@@ -336,6 +343,9 @@ export function MeetingScreen(): React.JSX.Element {
           currentLanguage={latestDetectedLanguage || 'AUTO'}
           developerMode={developerMode}
           speakerDebug={speakerDebug}
+          ttsEnabled={ttsEnabled}
+          isTtsSpeaking={isTtsSpeaking}
+          onToggleTts={() => setTtsEnabled(!ttsEnabled)}
         />
       </View>
 

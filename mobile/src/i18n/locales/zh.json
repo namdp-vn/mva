@@ -71,7 +71,8 @@
     "statusBarConnected": "已连接",
     "tabMeetings": "会议",
     "tabLive": "直播",
-    "tabNetwork": "网络"
+    "tabNetwork": "网络",
+    "ttsToggleLabel": "切换朗读"
   },
   "settings": {
     "title": "设置",
@@ -177,7 +178,18 @@
     "modelRemoveConfirm": "移除",
     "modelPrepareFailTitle": "准备失败",
     "modelRemoveFailTitle": "移除失败",
-    "modelStatusMissing": "未安装"
+    "modelStatusMissing": "未安装",
+    "sectionVoiceOutput": "语音输出",
+    "sectionVoiceOutputSubtitle": "通过耳机朗读翻译内容。",
+    "ttsEnabled": "朗读翻译",
+    "ttsEnabledDesc": "通过耳机播放",
+    "ttsSpeakingRate": "语速",
+    "ttsRateSlow": "慢",
+    "ttsRateNormal": "正常",
+    "ttsRateFast": "快",
+    "ttsVoiceEngine": "语音引擎",
+    "ttsVoiceEngineDesc": "系统 iOS",
+    "ttsComingSoon": "即将推出 Supertonic & VITS"
   },
   "history": {
     "appTitle": "Executive MVA",

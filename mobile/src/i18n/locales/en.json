@@ -71,7 +71,8 @@
     "statusBarConnected": "Connected",
     "tabMeetings": "Meetings",
     "tabLive": "Live",
-    "tabNetwork": "Network"
+    "tabNetwork": "Network",
+    "ttsToggleLabel": "Toggle read aloud"
   },
   "settings": {
     "title": "Settings",
@@ -177,7 +178,18 @@
     "modelRemoveConfirm": "Remove",
     "modelPrepareFailTitle": "Preparation failed",
     "modelRemoveFailTitle": "Remove failed",
-    "modelStatusMissing": "Missing"
+    "modelStatusMissing": "Missing",
+    "sectionVoiceOutput": "Voice Output",
+    "sectionVoiceOutputSubtitle": "Read translated speech aloud through earphones.",
+    "ttsEnabled": "Read translations aloud",
+    "ttsEnabledDesc": "Plays through earphones",
+    "ttsSpeakingRate": "Speaking Rate",
+    "ttsRateSlow": "Slow",
+    "ttsRateNormal": "Normal",
+    "ttsRateFast": "Fast",
+    "ttsVoiceEngine": "Voice Engine",
+    "ttsVoiceEngineDesc": "System iOS",
+    "ttsComingSoon": "Supertonic & VITS coming soon"
   },
   "history": {
     "appTitle": "Executive MVA",

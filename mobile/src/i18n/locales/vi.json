@@ -71,7 +71,8 @@
     "statusBarConnected": "Đã kết nối",
     "tabMeetings": "Cuộc họp",
     "tabLive": "Trực tiếp",
-    "tabNetwork": "Mạng"
+    "tabNetwork": "Mạng",
+    "ttsToggleLabel": "Bật/tắt đọc to"
   },
   "settings": {
     "title": "Cài đặt",
@@ -177,7 +178,18 @@
     "modelRemoveConfirm": "Xóa",
     "modelPrepareFailTitle": "Chuẩn bị thất bại",
     "modelRemoveFailTitle": "Xóa thất bại",
-    "modelStatusMissing": "Chưa có"
+    "modelStatusMissing": "Chưa có",
+    "sectionVoiceOutput": "Đầu ra giọng nói",
+    "sectionVoiceOutputSubtitle": "Đọc to bản dịch qua tai nghe.",
+    "ttsEnabled": "Đọc bản dịch to",
+    "ttsEnabledDesc": "Phát qua tai nghe",
+    "ttsSpeakingRate": "Tốc độ nói",
+    "ttsRateSlow": "Chậm",
+    "ttsRateNormal": "Bình thường",
+    "ttsRateFast": "Nhanh",
+    "ttsVoiceEngine": "Giọng đọc",
+    "ttsVoiceEngineDesc": "Hệ thống iOS",
+    "ttsComingSoon": "Supertonic & VITS sắp có"
   },
   "history": {
     "appTitle": "Executive MVA",
