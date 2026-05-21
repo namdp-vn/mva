@@ -269,9 +269,11 @@ export function SessionReviewScreen(): React.JSX.Element {
     [route.params?.fallbackUtterances],
   );
 
-  const [session, setSession] = useState<SessionData | null>(null);
-  const [utterances, setUtterances] = useState<UtteranceData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seed state from navigation params immediately so the screen renders
+  // without a loading spinner when coming from a freshly stopped meeting.
+  const [session, setSession] = useState<SessionData | null>(fallbackSession ?? null);
+  const [utterances, setUtterances] = useState<UtteranceData[]>(fallbackUtterances);
+  const [isLoading, setIsLoading] = useState(!fallbackSession);
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingRecap, setIsExportingRecap] = useState(false);
   const [isExportingMinutes, setIsExportingMinutes] = useState(false);
