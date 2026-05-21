@@ -18,31 +18,29 @@ export const LANGUAGE_LABELS: Record<AppLanguage, {label: string; nativeLabel: s
 };
 
 export function detectDeviceLanguage(): AppLanguage {
-  // 1. getLocales() (RN 0.73+) — reads NSLocale.preferredLanguages, user's
-  //    actual language preference (independent of region setting).
+  // 1. iOS NSUserDefaults AppleLanguages — the raw iOS preferred-language list,
+  //    independent of Region. Most reliable source on iOS.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {NativeModules, Platform} = require('react-native') as typeof import('react-native');
+    if (Platform.OS === 'ios') {
+      const settings = (NativeModules.SettingsManager as {settings?: Record<string, unknown>} | undefined)?.settings;
+      const appleLanguages = settings?.AppleLanguages;
+      if (Array.isArray(appleLanguages) && appleLanguages.length > 0) {
+        const lang = String(appleLanguages[0]).split(/[-_]/)[0] as AppLanguage;
+        if (SUPPORTED_LANGUAGES.includes(lang)) return lang;
+      }
+    }
+  } catch {}
+
+  // 2. getLocales() (RN 0.73+) — cross-platform, reads NSLocale.preferredLanguages.
   try {
     type Locale = {languageCode: string; countryCode?: string};
     const rn = require('react-native') as {getLocales?: () => Locale[]};
     const locales = rn.getLocales?.();
     if (locales && locales.length > 0) {
       const lang = locales[0].languageCode as AppLanguage;
-      if (SUPPORTED_LANGUAGES.includes(lang)) {
-        return lang;
-      }
-    }
-  } catch {}
-
-  // 2. Intl.DateTimeFormat — fallback only. On iOS this reads NSLocale.currentLocale
-  //    which is region-based and may differ from the language preference.
-  try {
-    if (typeof Intl !== 'undefined') {
-      const intlLocale = Intl.DateTimeFormat().resolvedOptions().locale;
-      if (intlLocale) {
-        const lang = intlLocale.split(/[-_]/)[0] as AppLanguage;
-        if (SUPPORTED_LANGUAGES.includes(lang)) {
-          return lang;
-        }
-      }
+      if (SUPPORTED_LANGUAGES.includes(lang)) return lang;
     }
   } catch {}
 
