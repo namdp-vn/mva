@@ -381,7 +381,7 @@ export function SettingsScreen(): React.JSX.Element {
                   <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
 
                   {/* Speaking rate */}
-                  <View style={[styles.settingRow, {opacity: ttsEnabled ? 1 : 0.4}]}>
+                  <View style={styles.settingRow}>
                     <View style={styles.settingInfo}>
                       <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsSpeakingRate')}</Text>
                     </View>
