@@ -190,8 +190,15 @@
     "ttsRateNormal": "보통",
     "ttsRateFast": "빠르게",
     "ttsVoiceEngine": "음성 엔진",
-    "ttsVoiceEngineDesc": "시스템 iOS",
-    "ttsComingSoon": "Supertonic & VITS 곧 출시"
+    "ttsEngineSystem": "시스템 iOS",
+    "ttsEngineSystemDesc": "자연스러운 음성, 다운로드 불필요",
+    "ttsEngineVits": "VITS",
+    "ttsEngineVitsDesc": "고품질, 모델 다운로드 필요",
+    "ttsEngineVitsJaFallback": "일본어는 시스템 iOS 사용",
+    "ttsVitsDownload": "다운로드",
+    "ttsVitsDownloading": "다운로드 중...",
+    "ttsVitsDownloaded": "다운로드 완료",
+    "ttsVitsDownloadFailed": "다운로드 실패"
   },
   "history": {
     "appTitle": "Executive MVA",

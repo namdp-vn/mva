@@ -190,8 +190,15 @@
     "ttsRateNormal": "Bình thường",
     "ttsRateFast": "Nhanh",
     "ttsVoiceEngine": "Giọng đọc",
-    "ttsVoiceEngineDesc": "Hệ thống iOS",
-    "ttsComingSoon": "Supertonic & VITS sắp có"
+    "ttsEngineSystem": "Hệ thống iOS",
+    "ttsEngineSystemDesc": "Tự nhiên, không cần tải về",
+    "ttsEngineVits": "VITS",
+    "ttsEngineVitsDesc": "Chất lượng cao hơn, cần tải model",
+    "ttsEngineVitsJaFallback": "Tiếng Nhật dùng Hệ thống iOS",
+    "ttsVitsDownload": "Tải về",
+    "ttsVitsDownloading": "Đang tải...",
+    "ttsVitsDownloaded": "Đã tải",
+    "ttsVitsDownloadFailed": "Tải thất bại"
   },
   "history": {
     "appTitle": "Executive MVA",

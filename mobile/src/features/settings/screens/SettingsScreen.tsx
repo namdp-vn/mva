@@ -5,7 +5,7 @@
  * All AI inference runs locally — no network dependency.
  */
 
-import React, {useState, useCallback, useEffect} from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -36,8 +36,16 @@ import {
   useAppLanguage,
   useTtsEnabled,
   useTtsRate,
+  useTtsEngine,
 } from '../../../shared/store';
-import type {TtsRate} from '../../../shared/store/settingsStore';
+import type {TtsRate, TtsEngine} from '../../../shared/store/settingsStore';
+import {ttsService} from '../../../services/tts/TTSService';
+import {
+  getVITSModelConfig,
+  isVITSModelDownloaded,
+  downloadVITSModel,
+} from '../../../services/tts/VITSModelManager';
+import type {DownloadProgress} from 'react-native-sherpa-onnx/download';
 import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
 import {
   formatDiarizationThreshold,
@@ -88,7 +96,13 @@ export function SettingsScreen(): React.JSX.Element {
   const {setAppLanguage} = useSettingsStore();
   const ttsEnabled = useTtsEnabled();
   const ttsRate = useTtsRate();
-  const {setTtsEnabled, setTtsRate} = useSettingsStore();
+  const ttsEngine = useTtsEngine();
+  const {setTtsEnabled, setTtsRate, setTtsEngine} = useSettingsStore();
+
+  type VitsStatus = 'unknown' | 'downloaded' | 'not_downloaded' | 'downloading' | 'error';
+  const [vitsStatus, setVitsStatus] = useState<VitsStatus>('unknown');
+  const [vitsProgress, setVitsProgress] = useState(0);
+  const vitsAbortRef = useRef<AbortController | null>(null);
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
@@ -160,6 +174,48 @@ export function SettingsScreen(): React.JSX.Element {
   useEffect(() => {
     refreshPackStatuses();
   }, [refreshPackStatuses]);
+
+  useEffect(() => {
+    if (vitsStatus === 'downloading') return;
+    setVitsStatus('unknown');
+    isVITSModelDownloaded(targetLanguage).then((dl) => {
+      setVitsStatus(dl ? 'downloaded' : 'not_downloaded');
+    }).catch(() => setVitsStatus('not_downloaded'));
+  }, [targetLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectEngine = useCallback(async (engine: TtsEngine) => {
+    if (engine === ttsEngine) return;
+    if (engine === 'vits') {
+      const config = getVITSModelConfig(targetLanguage);
+      if (!config) {
+        // JA or unsupported — stay on system
+        return;
+      }
+      const downloaded = await isVITSModelDownloaded(targetLanguage);
+      if (!downloaded) {
+        // Trigger download
+        const controller = new AbortController();
+        vitsAbortRef.current = controller;
+        setVitsStatus('downloading');
+        setVitsProgress(0);
+        try {
+          await downloadVITSModel(targetLanguage, (progress: DownloadProgress) => {
+            setVitsProgress(Math.round(progress.percent));
+          }, controller.signal);
+          setVitsStatus('downloaded');
+          setTtsEngine('vits');
+          ttsService.setEngine('vits');
+        } catch {
+          setVitsStatus('error');
+        } finally {
+          vitsAbortRef.current = null;
+        }
+        return;
+      }
+    }
+    setTtsEngine(engine);
+    ttsService.setEngine(engine);
+  }, [ttsEngine, targetLanguage, setTtsEngine]);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -408,16 +464,76 @@ export function SettingsScreen(): React.JSX.Element {
 
                   <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
 
-                  {/* Voice engine info */}
+                  {/* Voice engine selector */}
                   <View style={styles.settingRow}>
                     <View style={styles.settingInfo}>
                       <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsVoiceEngine')}</Text>
-                      <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary}]}>{t('ttsComingSoon')}</Text>
                     </View>
-                    <View style={[styles.statusBadge, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '40'}]}>
-                      <Text style={[styles.statusBadgeText, {color: theme.colors.primary}]}>{t('ttsVoiceEngineDesc')}</Text>
+                    <View style={styles.segmentedControl}>
+                      {(['system', 'vits'] as TtsEngine[]).map((eng) => {
+                        const disabled = eng === 'vits' && !getVITSModelConfig(targetLanguage);
+                        const active = ttsEngine === eng;
+                        return (
+                          <TouchableOpacity
+                            key={eng}
+                            style={[
+                              styles.segmentItem,
+                              {
+                                backgroundColor: active
+                                  ? theme.colors.primary
+                                  : theme.colors.surface.secondary,
+                                opacity: disabled ? 0.4 : 1,
+                              },
+                            ]}
+                            onPress={() => !disabled && handleSelectEngine(eng)}
+                            disabled={disabled}
+                            activeOpacity={0.8}>
+                            <Text style={[styles.segmentText, {color: active ? '#FFFFFF' : theme.colors.text.secondary}]}>
+                              {eng === 'system' ? t('ttsEngineSystem') : t('ttsEngineVits')}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
+
+                  {/* Engine description */}
+                  <View style={[styles.engineDescRow, {paddingHorizontal: 16, paddingBottom: 10}]}>
+                    <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, fontSize: 12}]}>
+                      {ttsEngine === 'system' ? t('ttsEngineSystemDesc') : t('ttsEngineVitsDesc')}
+                      {ttsEngine === 'vits' && !getVITSModelConfig(targetLanguage) ? `  ${t('ttsEngineVitsJaFallback')}` : ''}
+                    </Text>
+                  </View>
+
+                  {/* VITS download row */}
+                  {ttsEngine === 'vits' && getVITSModelConfig(targetLanguage) && (
+                    <>
+                      <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+                      <View style={[styles.settingRow, {paddingVertical: 10}]}>
+                        <View style={styles.settingInfo}>
+                          <Text style={[styles.settingDesc, {color: theme.colors.text.secondary}]}>
+                            {vitsStatus === 'downloading'
+                              ? `${t('ttsVitsDownloading')} ${vitsProgress}%`
+                              : vitsStatus === 'downloaded'
+                              ? `✓ ${t('ttsVitsDownloaded')} (${getVITSModelConfig(targetLanguage)!.sizeMB}MB)`
+                              : vitsStatus === 'error'
+                              ? t('ttsVitsDownloadFailed')
+                              : `${getVITSModelConfig(targetLanguage)!.sizeMB}MB`}
+                          </Text>
+                        </View>
+                        {vitsStatus === 'downloading' ? (
+                          <ActivityIndicator size="small" color={theme.colors.primary} />
+                        ) : vitsStatus !== 'downloaded' ? (
+                          <TouchableOpacity
+                            style={[styles.manageModelsButton, {backgroundColor: theme.colors.primary + '20'}]}
+                            onPress={() => handleSelectEngine('vits')}
+                            activeOpacity={0.7}>
+                            <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>{t('ttsVitsDownload')}</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </>
+                  )}
                 </>
               )}
             </View>
@@ -1409,6 +1525,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.label,
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
+  },
+  engineDescRow: {
+    paddingTop: 4,
   },
 });
 

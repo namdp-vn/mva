@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {create} from 'zustand';
 import {createJSONStorage, persist} from 'zustand/middleware';
 import {type AppLanguage, detectDeviceLanguage, changeAppLanguage} from '../../i18n';
-import type {TtsRate} from '../../services/tts/TTSService';
+import type {TtsRate, TtsEngine} from '../../services/tts/TTSService';
 
 export type AppThemeMode = 'system' | 'dark' | 'light';
 
@@ -81,6 +81,9 @@ interface SettingsState {
   /** TTS playback rate (default: 'normal') */
   ttsRate: TtsRate;
   setTtsRate: (r: TtsRate) => void;
+  /** TTS voice engine (default: 'system') */
+  ttsEngine: TtsEngine;
+  setTtsEngine: (e: TtsEngine) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -106,10 +109,12 @@ export const useSettingsStore = create<SettingsState>()(
       setTtsEnabled: (v) => set({ttsEnabled: v}),
       ttsRate: 'normal',
       setTtsRate: (r) => set({ttsRate: r}),
+      ttsEngine: 'system',
+      setTtsEngine: (e) => set({ttsEngine: e}),
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 8,
+      version: 9,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -120,6 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
         appLanguage: state.appLanguage,
         ttsEnabled: state.ttsEnabled,
         ttsRate: state.ttsRate,
+        ttsEngine: state.ttsEngine,
       }),
       migrate: (persistedState: unknown, version) => {
         const state = (persistedState ?? {}) as Partial<SettingsState>;
@@ -141,6 +147,7 @@ export const useSettingsStore = create<SettingsState>()(
           appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
           ttsEnabled: (state as SettingsState).ttsEnabled ?? false,
           ttsRate: (state as SettingsState).ttsRate ?? 'normal',
+          ttsEngine: (state as SettingsState).ttsEngine ?? 'system',
         } as SettingsState;
       },
     }
@@ -155,4 +162,5 @@ export const useSttEngine = () => useSettingsStore((state) => state.sttEngine);
 export const useAppLanguage = () => useSettingsStore((state) => state.appLanguage);
 export const useTtsEnabled = () => useSettingsStore((state) => state.ttsEnabled);
 export const useTtsRate = () => useSettingsStore((state) => state.ttsRate);
-export type {TtsRate};
+export const useTtsEngine = () => useSettingsStore((state) => state.ttsEngine);
+export type {TtsRate, TtsEngine};

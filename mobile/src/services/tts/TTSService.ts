@@ -1,7 +1,9 @@
 import {speakText, stopTTS} from '../../native/tts/NativeTTSSpeaker';
+import {speakVITS, stopVITS} from './VITSTTSEngine';
+import type {SupportedTargetLanguage} from '../../shared/store/settingsStore';
 
 export type TtsRate = 'slow' | 'normal' | 'fast';
-type TtsEngine = 'system';
+export type TtsEngine = 'system' | 'vits';
 
 const RATE_MAP: Record<TtsRate, number> = {
   slow: 0.42,
@@ -11,17 +13,63 @@ const RATE_MAP: Record<TtsRate, number> = {
 
 class TTSService {
   private engine: TtsEngine = 'system';
+  private vitsBusy = false;
+  private vitsQueue: Array<{
+    text: string;
+    language: SupportedTargetLanguage;
+    rate: TtsRate;
+  }> = [];
 
   speak(text: string, language: string, rate: TtsRate): void {
-    speakText(text, language, RATE_MAP[rate]);
+    if (this.engine === 'vits') {
+      this.enqueueVITS(text, language as SupportedTargetLanguage, rate);
+    } else {
+      speakText(text, language, RATE_MAP[rate]);
+    }
   }
 
   stop(): void {
-    stopTTS();
+    if (this.engine === 'vits') {
+      this.vitsQueue = [];
+      this.vitsBusy = false;
+      stopVITS().catch(() => {});
+    } else {
+      stopTTS();
+    }
   }
 
   setEngine(engine: TtsEngine): void {
-    this.engine = engine;
+    if (this.engine !== engine) {
+      this.stop();
+      this.engine = engine;
+    }
+  }
+
+  getEngine(): TtsEngine {
+    return this.engine;
+  }
+
+  private enqueueVITS(
+    text: string,
+    language: SupportedTargetLanguage,
+    rate: TtsRate,
+  ): void {
+    this.vitsQueue.push({text, language, rate});
+    if (!this.vitsBusy) {
+      this.drainVITSQueue();
+    }
+  }
+
+  private drainVITSQueue(): void {
+    if (this.vitsQueue.length === 0) {
+      this.vitsBusy = false;
+      return;
+    }
+    this.vitsBusy = true;
+    const item = this.vitsQueue.shift()!;
+    speakVITS(item.text, item.language, item.rate)
+      .then(() => this.drainVITSQueue())
+      .catch(() => this.drainVITSQueue());
   }
 }
 

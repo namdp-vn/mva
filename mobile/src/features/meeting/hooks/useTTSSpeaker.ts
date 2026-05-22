@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {TTSSpeakerEmitter} from '../../../native/tts/NativeTTSSpeaker';
 import {ttsService} from '../../../services/tts/TTSService';
-import {useTtsEnabled, useTtsRate} from '../../../shared/store/settingsStore';
+import {useTtsEnabled, useTtsRate, useTtsEngine} from '../../../shared/store/settingsStore';
 import type {TranslationEntry} from '../state/meetingStore';
 
 interface UseTTSSpeakerResult {
@@ -15,7 +15,15 @@ export function useTTSSpeaker(
 ): UseTTSSpeakerResult {
   const ttsEnabled = useTtsEnabled();
   const ttsRate = useTtsRate();
+  const ttsEngine = useTtsEngine();
   const lastSpokenIdRef = useRef<string | null>(null);
+
+  // Keep service engine in sync with persisted store value
+  useEffect(() => {
+    if (ttsService.getEngine() !== ttsEngine) {
+      ttsService.setEngine(ttsEngine);
+    }
+  }, [ttsEngine]);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Subscribe to native TTS events for speaking indicator

@@ -190,8 +190,15 @@
     "ttsRateNormal": "Normal",
     "ttsRateFast": "Fast",
     "ttsVoiceEngine": "Voice Engine",
-    "ttsVoiceEngineDesc": "System iOS",
-    "ttsComingSoon": "Supertonic & VITS coming soon"
+    "ttsEngineSystem": "System iOS",
+    "ttsEngineSystemDesc": "Natural, no download required",
+    "ttsEngineVits": "VITS",
+    "ttsEngineVitsDesc": "Higher fidelity, requires model download",
+    "ttsEngineVitsJaFallback": "Japanese uses System iOS",
+    "ttsVitsDownload": "Download",
+    "ttsVitsDownloading": "Downloading...",
+    "ttsVitsDownloaded": "Downloaded",
+    "ttsVitsDownloadFailed": "Download failed"
   },
   "history": {
     "appTitle": "Executive MVA",
