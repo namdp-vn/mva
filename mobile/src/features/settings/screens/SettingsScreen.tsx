@@ -191,12 +191,6 @@ export function SettingsScreen(): React.JSX.Element {
   const handleSelectEngine = useCallback(async (engine: TtsEngine) => {
     if (engine === ttsEngine && vitsStatus === 'downloaded') return;
     if (engine === 'system') {
-      if (vitsAbortRef.current) {
-        vitsAbortRef.current.abort();
-        vitsAbortRef.current = null;
-      }
-      setVitsStatus('unknown');
-      setVitsProgress(0);
       setTtsEngine('system');
       ttsService.setEngine('system');
       setVitsRowVisible(false);
