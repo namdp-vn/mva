@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {TTSSpeakerEmitter} from '../../../native/tts/NativeTTSSpeaker';
 import {ttsService} from '../../../services/tts/TTSService';
-import {useTtsEnabled, useTtsRate, useTtsEngine} from '../../../shared/store/settingsStore';
+import {useTtsEnabled, useTtsRate} from '../../../shared/store/settingsStore';
 import type {TranslationEntry} from '../state/meetingStore';
 
 interface UseTTSSpeakerResult {
@@ -12,18 +12,11 @@ export function useTTSSpeaker(
   translations: TranslationEntry[],
   isActive: boolean,
   targetLanguage: string,
+  ttsPaused: boolean,
 ): UseTTSSpeakerResult {
   const ttsEnabled = useTtsEnabled();
   const ttsRate = useTtsRate();
-  const ttsEngine = useTtsEngine();
   const lastSpokenIdRef = useRef<string | null>(null);
-
-  // Keep service engine in sync with persisted store value
-  useEffect(() => {
-    if (ttsService.getEngine() !== ttsEngine) {
-      ttsService.setEngine(ttsEngine);
-    }
-  }, [ttsEngine]);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Subscribe to native TTS events for speaking indicator
@@ -37,18 +30,18 @@ export function useTTSSpeaker(
     };
   }, []);
 
-  // Stop TTS when session becomes inactive
+  // Stop TTS when session becomes inactive or paused in meeting
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive || ttsPaused) {
       ttsService.stop();
       setIsSpeaking(false);
       lastSpokenIdRef.current = null;
     }
-  }, [isActive]);
+  }, [isActive, ttsPaused]);
 
   // Speak new final translations
   useEffect(() => {
-    if (!ttsEnabled || !isActive) return;
+    if (!ttsEnabled || !isActive || ttsPaused) return;
 
     const finalEntries = translations.filter((e) => e.isFinal && e.translatedText?.trim());
     if (finalEntries.length === 0) return;
@@ -56,7 +49,6 @@ export function useTTSSpeaker(
     const latest = finalEntries[finalEntries.length - 1];
     if (latest.id === lastSpokenIdRef.current) return;
 
-    // Find all unspoken final entries and queue them in order
     const lastIdx = lastSpokenIdRef.current
       ? finalEntries.findIndex((e) => e.id === lastSpokenIdRef.current)
       : -1;
@@ -68,7 +60,7 @@ export function useTTSSpeaker(
     }
 
     lastSpokenIdRef.current = latest.id;
-  }, [translations, ttsEnabled, isActive, targetLanguage, ttsRate]);
+  }, [translations, ttsEnabled, isActive, targetLanguage, ttsRate, ttsPaused]);
 
   return {isSpeaking};
 }

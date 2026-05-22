@@ -190,19 +190,7 @@
     "ttsRateNormal": "正常",
     "ttsRateFast": "快",
     "ttsVoiceEngine": "语音引擎",
-    "ttsEngineSystem": "系统 iOS",
-    "ttsEngineSystemDesc": "自然语音，无需下载",
-    "ttsEngineVits": "VITS",
-    "ttsEngineVitsDesc": "更高品质，需要下载模型",
-    "ttsEngineVitsJaFallback": "日语使用系统 iOS",
-    "ttsVitsDownload": "下载",
-    "ttsVitsDownloading": "下载中...",
-    "ttsVitsDownloaded": "已下载",
-    "ttsVitsDownloadFailed": "下载失败",
-    "ttsUpgradePrompt": "想要更高品质的语音？",
-    "ttsUpgradeButton": "使用增强语音",
-    "ttsDownloadModalTitle": "正在下载增强语音",
-    "ttsDownloadCancel": "取消"
+    "ttsEngineSystem": "系统 iOS"
   },
   "history": {
     "appTitle": "Executive MVA",

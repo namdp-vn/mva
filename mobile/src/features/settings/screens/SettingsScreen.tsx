@@ -37,16 +37,8 @@ import {
   useAppLanguage,
   useTtsEnabled,
   useTtsRate,
-  useTtsEngine,
 } from '../../../shared/store';
-import type {TtsRate, TtsEngine} from '../../../shared/store/settingsStore';
-import {ttsService} from '../../../services/tts/TTSService';
-import {
-  getVITSModelConfig,
-  downloadVITSModel,
-  cancelAndDeleteVITSModel,
-} from '../../../services/tts/VITSModelManager';
-import type {DownloadProgress} from 'react-native-sherpa-onnx/download';
+import type {TtsRate} from '../../../shared/store/settingsStore';
 import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
 import {
   formatDiarizationThreshold,
@@ -97,12 +89,7 @@ export function SettingsScreen(): React.JSX.Element {
   const {setAppLanguage} = useSettingsStore();
   const ttsEnabled = useTtsEnabled();
   const ttsRate = useTtsRate();
-  const ttsEngine = useTtsEngine();
-  const {setTtsEnabled, setTtsRate, setTtsEngine} = useSettingsStore();
-
-  const [vitsModalVisible, setVitsModalVisible] = useState(false);
-  const [vitsProgress, setVitsProgress] = useState(0);
-  const vitsAbortRef = useRef<AbortController | null>(null);
+  const {setTtsEnabled, setTtsRate} = useSettingsStore();
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
   const [langSelectorVisible, setLangSelectorVisible] = useState(false);
@@ -174,40 +161,6 @@ export function SettingsScreen(): React.JSX.Element {
   useEffect(() => {
     refreshPackStatuses();
   }, [refreshPackStatuses]);
-
-  const handleUpgradeVoice = useCallback(async () => {
-    setVitsModalVisible(true);
-    setVitsProgress(0);
-    const controller = new AbortController();
-    vitsAbortRef.current = controller;
-    try {
-      await downloadVITSModel(
-        targetLanguage,
-        (progress: DownloadProgress) => setVitsProgress(Math.round(progress.percent)),
-        controller.signal,
-      );
-      setVitsProgress(100);
-      // Brief pause so user sees 100% before modal closes
-      await new Promise<void>((resolve) => setTimeout(resolve, 600));
-      setVitsModalVisible(false);
-      setTtsEngine('vits');
-      ttsService.setEngine('vits');
-    } catch {
-      // Aborted or error — just close modal, state reverts
-      setVitsModalVisible(false);
-      setVitsProgress(0);
-    } finally {
-      vitsAbortRef.current = null;
-    }
-  }, [targetLanguage, setTtsEngine]);
-
-  const handleCancelVitsDownload = useCallback(async () => {
-    const controller = vitsAbortRef.current;
-    vitsAbortRef.current = null;
-    setVitsModalVisible(false);
-    setVitsProgress(0);
-    await cancelAndDeleteVITSModel(targetLanguage, controller ?? undefined);
-  }, [targetLanguage]);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -466,69 +419,10 @@ export function SettingsScreen(): React.JSX.Element {
                     </View>
                     <View style={[styles.inlineBadge, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '40'}]}>
                       <Text style={[styles.inlineBadgeText, {color: theme.colors.primary}]}>
-                        {ttsEngine === 'vits' ? t('ttsEngineVits') : t('ttsEngineSystem')}
+                        {t('ttsEngineSystem')}
                       </Text>
                     </View>
                   </View>
-
-                  {/* Upgrade prompt — only shown when VITS available and not yet active */}
-                  {ttsEngine === 'system' && getVITSModelConfig(targetLanguage) && (
-                    <>
-                      <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
-                      <View style={[styles.settingRow, {paddingVertical: 10}]}>
-                        <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, flex: 1}]}>
-                          {t('ttsUpgradePrompt')}
-                        </Text>
-                        <TouchableOpacity
-                          style={[styles.manageModelsButton, {backgroundColor: theme.colors.primary + '20'}]}
-                          onPress={handleUpgradeVoice}
-                          activeOpacity={0.7}>
-                          <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>{t('ttsUpgradeButton')}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  )}
-
-                  {/* Download progress modal */}
-                  <Modal
-                    visible={vitsModalVisible}
-                    transparent
-                    animationType="fade"
-                    onRequestClose={handleCancelVitsDownload}>
-                    <View style={styles.modalOverlay}>
-                      <View style={[styles.modalCard, {backgroundColor: theme.colors.surface.primary}]}>
-                        <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>
-                          {t('ttsDownloadModalTitle')}
-                        </Text>
-                        <Text style={[styles.modalSubText, {color: theme.colors.text.tertiary}]}>
-                          {getVITSModelConfig(targetLanguage)?.sizeMB ?? 0} MB
-                        </Text>
-                        {/* Progress bar */}
-                        <View style={[styles.progressTrack, {backgroundColor: theme.colors.surface.secondary}]}>
-                          <View
-                            style={[
-                              styles.progressFill,
-                              {
-                                width: `${vitsProgress}%`,
-                                backgroundColor: theme.colors.primary,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text style={[styles.progressPercent, {color: theme.colors.primary}]}>
-                          {vitsProgress}%
-                        </Text>
-                        <TouchableOpacity
-                          style={[styles.modalCancelButton, {borderColor: theme.colors.border.subtle}]}
-                          onPress={handleCancelVitsDownload}
-                          activeOpacity={0.7}>
-                          <Text style={[styles.modalCancelText, {color: theme.colors.text.secondary}]}>
-                            {t('ttsDownloadCancel')}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </Modal>
                 </>
               )}
             </View>

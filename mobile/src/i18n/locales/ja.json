@@ -190,19 +190,7 @@
     "ttsRateNormal": "普通",
     "ttsRateFast": "速く",
     "ttsVoiceEngine": "音声エンジン",
-    "ttsEngineSystem": "システム iOS",
-    "ttsEngineSystemDesc": "自然な音声、ダウンロード不要",
-    "ttsEngineVits": "VITS",
-    "ttsEngineVitsDesc": "高音質、モデルのダウンロードが必要",
-    "ttsEngineVitsJaFallback": "日本語はシステム iOS を使用",
-    "ttsVitsDownload": "ダウンロード",
-    "ttsVitsDownloading": "ダウンロード中...",
-    "ttsVitsDownloaded": "ダウンロード済み",
-    "ttsVitsDownloadFailed": "ダウンロード失敗",
-    "ttsUpgradePrompt": "より高品質な音声を使いますか？",
-    "ttsUpgradeButton": "高品質音声を使用",
-    "ttsDownloadModalTitle": "高品質音声をダウンロード中",
-    "ttsDownloadCancel": "キャンセル"
+    "ttsEngineSystem": "システム iOS"
   },
   "history": {
     "appTitle": "Executive MVA",

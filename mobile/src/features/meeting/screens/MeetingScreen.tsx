@@ -32,7 +32,6 @@ import {RootStackParamList} from '../../../app/navigation/router';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
 import {useBootstrapStore, useModelState, usePrewarmState, useTranslatorModelState} from '../../../shared/store';
 import {useDeveloperMode, useTargetLanguage, useTtsEnabled} from '../../../shared/store/settingsStore';
-import {useSettingsStore} from '../../../shared/store';
 import {ttsService} from '../../../services/tts/TTSService';
 import {useTTSSpeaker} from '../hooks/useTTSSpeaker';
 import {MeetingStatusBar} from '../components/MeetingStatusBar';
@@ -69,7 +68,7 @@ export function MeetingScreen(): React.JSX.Element {
   const {speakerDebug} = useDeveloperMetrics();
   const targetLanguage = useTargetLanguage();
   const ttsEnabled = useTtsEnabled();
-  const {setTtsEnabled} = useSettingsStore();
+  const [ttsPaused, setTtsPaused] = useState(false);
 
   const {
     session,
@@ -91,7 +90,7 @@ export function MeetingScreen(): React.JSX.Element {
     degradedMessage,
   } = useMeetingSession();
 
-  const {isSpeaking: isTtsSpeaking} = useTTSSpeaker(session?.translations ?? [], isActive, targetLanguage);
+  const {isSpeaking: isTtsSpeaking} = useTTSSpeaker(session?.translations ?? [], isActive, targetLanguage, ttsPaused);
 
   const isPaused = status === 'paused';
 
@@ -345,9 +344,9 @@ export function MeetingScreen(): React.JSX.Element {
           currentLanguage={latestDetectedLanguage || 'AUTO'}
           developerMode={developerMode}
           speakerDebug={speakerDebug}
-          ttsEnabled={ttsEnabled}
+          ttsEnabled={ttsEnabled && !ttsPaused}
           isTtsSpeaking={isTtsSpeaking}
-          onToggleTts={() => setTtsEnabled(!ttsEnabled)}
+          onToggleTts={ttsEnabled ? () => setTtsPaused(p => !p) : undefined}
         />
       </View>
 
