@@ -475,81 +475,86 @@ export function SettingsScreen(): React.JSX.Element {
                   <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
 
                   {/* Voice engine selector */}
-                  <View style={styles.settingRow}>
+                  <View style={[styles.settingRow, {alignItems: 'flex-start', paddingVertical: 12}]}>
                     <View style={styles.settingInfo}>
                       <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsVoiceEngine')}</Text>
+                      <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, marginTop: 2}]}>
+                        {ttsEngine === 'system' || vitsStatus !== 'downloaded'
+                          ? t('ttsEngineSystemDesc')
+                          : t('ttsEngineVitsDesc')}
+                      </Text>
                     </View>
-                    <View style={styles.segmentedControl}>
-                      {(['system', 'vits'] as TtsEngine[]).map((eng) => {
-                        const noVitsModel = eng === 'vits' && !getVITSModelConfig(targetLanguage);
-                        const isDownloading = eng === 'vits' && vitsStatus === 'downloading';
-                        const active = ttsEngine === eng || isDownloading;
+                    <View style={styles.engineSelectorGroup}>
+                      {/* System iOS button */}
+                      <TouchableOpacity
+                        style={[
+                          styles.engineButton,
+                          ttsEngine === 'system'
+                            ? {backgroundColor: theme.colors.primary}
+                            : {backgroundColor: theme.colors.surface.secondary},
+                        ]}
+                        onPress={() => handleSelectEngine('system')}
+                        activeOpacity={0.8}>
+                        <Text style={[styles.engineButtonText, {color: ttsEngine === 'system' ? '#FFFFFF' : theme.colors.text.secondary}]}>
+                          {t('ttsEngineSystem')}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* VITS button — shows progress bar when downloading */}
+                      {(() => {
+                        const noVitsModel = !getVITSModelConfig(targetLanguage);
+                        const isDownloading = vitsStatus === 'downloading';
+                        const isActive = ttsEngine === 'vits' || isDownloading;
                         return (
                           <TouchableOpacity
-                            key={eng}
                             style={[
-                              styles.segmentItem,
+                              styles.engineButton,
                               {
-                                backgroundColor: active
+                                backgroundColor: isActive
                                   ? theme.colors.primary
                                   : theme.colors.surface.secondary,
                                 opacity: noVitsModel ? 0.4 : 1,
-                                flexDirection: 'row',
-                                gap: 4,
+                                overflow: 'hidden',
                               },
                             ]}
-                            onPress={() => !noVitsModel && handleSelectEngine(eng)}
+                            onPress={() => !noVitsModel && !isDownloading && handleSelectEngine('vits')}
                             disabled={noVitsModel || isDownloading}
                             activeOpacity={0.8}>
+                            {/* Progress fill overlay */}
                             {isDownloading && (
-                              <ActivityIndicator size="small" color="#FFFFFF" style={{marginRight: 2}} />
+                              <View
+                                style={[
+                                  styles.engineButtonProgressFill,
+                                  {
+                                    width: `${vitsProgress}%`,
+                                    backgroundColor: theme.colors.primary + 'CC',
+                                  },
+                                ]}
+                              />
                             )}
-                            <Text style={[styles.segmentText, {color: active ? '#FFFFFF' : theme.colors.text.secondary}]}>
-                              {eng === 'system' ? t('ttsEngineSystem') : t('ttsEngineVits')}
-                            </Text>
+                            <View style={styles.engineButtonContent}>
+                              <Text style={[styles.engineButtonText, {color: isActive ? '#FFFFFF' : theme.colors.text.secondary}]}>
+                                {t('ttsEngineVits')}
+                              </Text>
+                              {isDownloading && (
+                                <Text style={[styles.engineButtonSubText, {color: 'rgba(255,255,255,0.85)'}]}>
+                                  {vitsProgress}%
+                                </Text>
+                              )}
+                              {ttsEngine === 'vits' && !isDownloading && (
+                                <Text style={[styles.engineButtonSubText, {color: 'rgba(255,255,255,0.75)'}]}>✓</Text>
+                              )}
+                              {!isActive && !isDownloading && getVITSModelConfig(targetLanguage) && (
+                                <Text style={[styles.engineButtonSubText, {color: theme.colors.text.tertiary}]}>
+                                  {getVITSModelConfig(targetLanguage)!.sizeMB}MB
+                                </Text>
+                              )}
+                            </View>
                           </TouchableOpacity>
                         );
-                      })}
+                      })()}
                     </View>
                   </View>
-
-                  {/* Engine description */}
-                  <View style={[styles.engineDescRow, {paddingHorizontal: 16, paddingBottom: 10}]}>
-                    <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, fontSize: 12}]}>
-                      {ttsEngine === 'system' ? t('ttsEngineSystemDesc') : t('ttsEngineVitsDesc')}
-                      {ttsEngine === 'vits' && !getVITSModelConfig(targetLanguage) ? `  ${t('ttsEngineVitsJaFallback')}` : ''}
-                    </Text>
-                  </View>
-
-                  {/* VITS download row */}
-                  {vitsRowVisible && getVITSModelConfig(targetLanguage) && (
-                    <>
-                      <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
-                      <View style={[styles.settingRow, {paddingVertical: 10}]}>
-                        <View style={styles.settingInfo}>
-                          <Text style={[styles.settingDesc, {color: theme.colors.text.secondary}]}>
-                            {vitsStatus === 'downloading'
-                              ? `${t('ttsVitsDownloading')} ${vitsProgress}%`
-                              : vitsStatus === 'downloaded'
-                              ? `✓ ${t('ttsVitsDownloaded')} (${getVITSModelConfig(targetLanguage)!.sizeMB}MB)`
-                              : vitsStatus === 'error'
-                              ? t('ttsVitsDownloadFailed')
-                              : `${getVITSModelConfig(targetLanguage)!.sizeMB}MB`}
-                          </Text>
-                        </View>
-                        {vitsStatus === 'downloading' ? (
-                          <ActivityIndicator size="small" color={theme.colors.primary} />
-                        ) : vitsStatus !== 'downloaded' ? (
-                          <TouchableOpacity
-                            style={[styles.manageModelsButton, {backgroundColor: theme.colors.primary + '20'}]}
-                            onPress={() => handleSelectEngine('vits')}
-                            activeOpacity={0.7}>
-                            <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>{t('ttsVitsDownload')}</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </>
-                  )}
                 </>
               )}
             </View>
@@ -1544,6 +1549,44 @@ const styles = StyleSheet.create({
   },
   engineDescRow: {
     paddingTop: 4,
+  },
+  engineSelectorGroup: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  engineButton: {
+    flex: 1,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    position: 'relative',
+  },
+  engineButtonContent: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  engineButtonText: {
+    fontFamily: typography.fontFamily.label,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    textAlign: 'center',
+  },
+  engineButtonSubText: {
+    fontFamily: typography.fontFamily.label,
+    fontSize: 10,
+    fontWeight: typography.fontWeight.medium,
+  },
+  engineButtonProgressFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    borderRadius: borderRadius.md,
   },
 });
 
