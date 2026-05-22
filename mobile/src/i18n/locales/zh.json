@@ -198,7 +198,11 @@
     "ttsVitsDownload": "下载",
     "ttsVitsDownloading": "下载中...",
     "ttsVitsDownloaded": "已下载",
-    "ttsVitsDownloadFailed": "下载失败"
+    "ttsVitsDownloadFailed": "下载失败",
+    "ttsUpgradePrompt": "想要更高品质的语音？",
+    "ttsUpgradeButton": "使用增强语音",
+    "ttsDownloadModalTitle": "正在下载增强语音",
+    "ttsDownloadCancel": "取消"
   },
   "history": {
     "appTitle": "Executive MVA",

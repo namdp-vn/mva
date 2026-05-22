@@ -198,7 +198,11 @@
     "ttsVitsDownload": "Download",
     "ttsVitsDownloading": "Downloading...",
     "ttsVitsDownloaded": "Downloaded",
-    "ttsVitsDownloadFailed": "Download failed"
+    "ttsVitsDownloadFailed": "Download failed",
+    "ttsUpgradePrompt": "Want higher quality voice output?",
+    "ttsUpgradeButton": "Use enhanced voice",
+    "ttsDownloadModalTitle": "Downloading enhanced voice",
+    "ttsDownloadCancel": "Cancel"
   },
   "history": {
     "appTitle": "Executive MVA",

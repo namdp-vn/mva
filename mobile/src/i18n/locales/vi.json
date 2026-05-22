@@ -198,7 +198,11 @@
     "ttsVitsDownload": "Tải về",
     "ttsVitsDownloading": "Đang tải...",
     "ttsVitsDownloaded": "Đã tải",
-    "ttsVitsDownloadFailed": "Tải thất bại"
+    "ttsVitsDownloadFailed": "Tải thất bại",
+    "ttsUpgradePrompt": "Muốn giọng đọc chất lượng cao hơn?",
+    "ttsUpgradeButton": "Sử dụng giọng đọc nâng cao",
+    "ttsDownloadModalTitle": "Đang tải giọng đọc nâng cao",
+    "ttsDownloadCancel": "Huỷ"
   },
   "history": {
     "appTitle": "Executive MVA",

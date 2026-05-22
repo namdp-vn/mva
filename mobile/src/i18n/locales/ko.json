@@ -198,7 +198,11 @@
     "ttsVitsDownload": "다운로드",
     "ttsVitsDownloading": "다운로드 중...",
     "ttsVitsDownloaded": "다운로드 완료",
-    "ttsVitsDownloadFailed": "다운로드 실패"
+    "ttsVitsDownloadFailed": "다운로드 실패",
+    "ttsUpgradePrompt": "더 높은 품질의 음성을 원하시나요?",
+    "ttsUpgradeButton": "고품질 음성 사용",
+    "ttsDownloadModalTitle": "고품질 음성 다운로드 중",
+    "ttsDownloadCancel": "취소"
   },
   "history": {
     "appTitle": "Executive MVA",

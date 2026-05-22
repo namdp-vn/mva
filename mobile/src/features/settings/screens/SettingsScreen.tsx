@@ -43,8 +43,8 @@ import type {TtsRate, TtsEngine} from '../../../shared/store/settingsStore';
 import {ttsService} from '../../../services/tts/TTSService';
 import {
   getVITSModelConfig,
-  isVITSModelDownloaded,
   downloadVITSModel,
+  cancelAndDeleteVITSModel,
 } from '../../../services/tts/VITSModelManager';
 import type {DownloadProgress} from 'react-native-sherpa-onnx/download';
 import {SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type AppLanguage} from '../../../i18n';
@@ -100,10 +100,8 @@ export function SettingsScreen(): React.JSX.Element {
   const ttsEngine = useTtsEngine();
   const {setTtsEnabled, setTtsRate, setTtsEngine} = useSettingsStore();
 
-  type VitsStatus = 'unknown' | 'downloaded' | 'not_downloaded' | 'downloading' | 'error';
-  const [vitsStatus, setVitsStatus] = useState<VitsStatus>('unknown');
+  const [vitsModalVisible, setVitsModalVisible] = useState(false);
   const [vitsProgress, setVitsProgress] = useState(0);
-  const [vitsRowVisible, setVitsRowVisible] = useState(false);
   const vitsAbortRef = useRef<AbortController | null>(null);
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
@@ -177,56 +175,39 @@ export function SettingsScreen(): React.JSX.Element {
     refreshPackStatuses();
   }, [refreshPackStatuses]);
 
-  useEffect(() => {
-    if (ttsEngine === 'vits') setVitsRowVisible(true);
-  }, [ttsEngine]);
-
-  useEffect(() => {
-    if (vitsStatus === 'downloading') return;
-    setVitsStatus('unknown');
-    isVITSModelDownloaded(targetLanguage).then((dl) => {
-      setVitsStatus(dl ? 'downloaded' : 'not_downloaded');
-    }).catch(() => setVitsStatus('not_downloaded'));
-  }, [targetLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSelectEngine = useCallback(async (engine: TtsEngine) => {
-    if (engine === ttsEngine && vitsStatus === 'downloaded') return;
-    if (engine === 'system') {
-      setTtsEngine('system');
-      ttsService.setEngine('system');
-      setVitsRowVisible(false);
-      return;
-    }
-    // engine === 'vits'
-    const config = getVITSModelConfig(targetLanguage);
-    if (!config) return; // JA — not supported
-    setVitsRowVisible(true);
-    const downloaded = await isVITSModelDownloaded(targetLanguage);
-    if (downloaded) {
-      setVitsStatus('downloaded');
-      setTtsEngine('vits');
-      ttsService.setEngine('vits');
-      return;
-    }
+  const handleUpgradeVoice = useCallback(async () => {
+    setVitsModalVisible(true);
+    setVitsProgress(0);
     const controller = new AbortController();
     vitsAbortRef.current = controller;
-    setVitsStatus('downloading');
-    setVitsProgress(0);
     try {
       await downloadVITSModel(
         targetLanguage,
         (progress: DownloadProgress) => setVitsProgress(Math.round(progress.percent)),
         controller.signal,
       );
-      setVitsStatus('downloaded');
+      setVitsProgress(100);
+      // Brief pause so user sees 100% before modal closes
+      await new Promise<void>((resolve) => setTimeout(resolve, 600));
+      setVitsModalVisible(false);
       setTtsEngine('vits');
       ttsService.setEngine('vits');
     } catch {
-      setVitsStatus('error');
+      // Aborted or error — just close modal, state reverts
+      setVitsModalVisible(false);
+      setVitsProgress(0);
     } finally {
       vitsAbortRef.current = null;
     }
-  }, [ttsEngine, vitsStatus, targetLanguage, setTtsEngine]);
+  }, [targetLanguage, setTtsEngine]);
+
+  const handleCancelVitsDownload = useCallback(async () => {
+    const controller = vitsAbortRef.current;
+    vitsAbortRef.current = null;
+    setVitsModalVisible(false);
+    setVitsProgress(0);
+    await cancelAndDeleteVITSModel(targetLanguage, controller ?? undefined);
+  }, [targetLanguage]);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -478,87 +459,76 @@ export function SettingsScreen(): React.JSX.Element {
 
                   <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
 
-                  {/* Voice engine selector */}
-                  <View style={[styles.settingRow, {alignItems: 'flex-start', paddingVertical: 12}]}>
+                  {/* Voice engine — current badge */}
+                  <View style={styles.settingRow}>
                     <View style={styles.settingInfo}>
                       <Text style={[styles.settingLabel, {color: theme.colors.text.primary}]}>{t('ttsVoiceEngine')}</Text>
-                      <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, marginTop: 2}]}>
-                        {ttsEngine === 'system' || vitsStatus !== 'downloaded'
-                          ? t('ttsEngineSystemDesc')
-                          : t('ttsEngineVitsDesc')}
+                    </View>
+                    <View style={[styles.inlineBadge, {backgroundColor: theme.colors.primary + '20', borderColor: theme.colors.primary + '40'}]}>
+                      <Text style={[styles.inlineBadgeText, {color: theme.colors.primary}]}>
+                        {ttsEngine === 'vits' ? t('ttsEngineVits') : t('ttsEngineSystem')}
                       </Text>
                     </View>
-                    <View style={styles.engineSelectorGroup}>
-                      {/* System iOS button */}
-                      <TouchableOpacity
-                        style={[
-                          styles.engineButton,
-                          ttsEngine === 'system'
-                            ? {backgroundColor: theme.colors.primary}
-                            : {backgroundColor: theme.colors.surface.secondary},
-                        ]}
-                        onPress={() => handleSelectEngine('system')}
-                        activeOpacity={0.8}>
-                        <Text style={[styles.engineButtonText, {color: ttsEngine === 'system' ? '#FFFFFF' : theme.colors.text.secondary}]}>
-                          {t('ttsEngineSystem')}
-                        </Text>
-                      </TouchableOpacity>
+                  </View>
 
-                      {/* VITS button — shows progress bar when downloading */}
-                      {(() => {
-                        const noVitsModel = !getVITSModelConfig(targetLanguage);
-                        const isDownloading = vitsStatus === 'downloading';
-                        const isActive = ttsEngine === 'vits' || isDownloading || vitsRowVisible;
-                        return (
-                          <TouchableOpacity
+                  {/* Upgrade prompt — only shown when VITS available and not yet active */}
+                  {ttsEngine === 'system' && getVITSModelConfig(targetLanguage) && (
+                    <>
+                      <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
+                      <View style={[styles.settingRow, {paddingVertical: 10}]}>
+                        <Text style={[styles.settingDesc, {color: theme.colors.text.tertiary, flex: 1}]}>
+                          {t('ttsUpgradePrompt')}
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.manageModelsButton, {backgroundColor: theme.colors.primary + '20'}]}
+                          onPress={handleUpgradeVoice}
+                          activeOpacity={0.7}>
+                          <Text style={[styles.manageModelsText, {color: theme.colors.primary}]}>{t('ttsUpgradeButton')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+
+                  {/* Download progress modal */}
+                  <Modal
+                    visible={vitsModalVisible}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={handleCancelVitsDownload}>
+                    <View style={styles.modalOverlay}>
+                      <View style={[styles.modalCard, {backgroundColor: theme.colors.surface.primary}]}>
+                        <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>
+                          {t('ttsDownloadModalTitle')}
+                        </Text>
+                        <Text style={[styles.modalSubText, {color: theme.colors.text.tertiary}]}>
+                          {getVITSModelConfig(targetLanguage)?.sizeMB ?? 0} MB
+                        </Text>
+                        {/* Progress bar */}
+                        <View style={[styles.progressTrack, {backgroundColor: theme.colors.surface.secondary}]}>
+                          <View
                             style={[
-                              styles.engineButton,
+                              styles.progressFill,
                               {
-                                backgroundColor: isActive
-                                  ? theme.colors.primary
-                                  : theme.colors.surface.secondary,
-                                opacity: noVitsModel ? 0.4 : 1,
-                                overflow: 'hidden',
+                                width: `${vitsProgress}%`,
+                                backgroundColor: theme.colors.primary,
                               },
                             ]}
-                            onPress={() => !noVitsModel && !isDownloading && handleSelectEngine('vits')}
-                            disabled={noVitsModel || isDownloading}
-                            activeOpacity={0.8}>
-                            {/* Progress fill overlay */}
-                            {isDownloading && (
-                              <View
-                                style={[
-                                  styles.engineButtonProgressFill,
-                                  {
-                                    width: `${vitsProgress}%`,
-                                    backgroundColor: theme.colors.primary + 'CC',
-                                  },
-                                ]}
-                              />
-                            )}
-                            <View style={styles.engineButtonContent}>
-                              <Text style={[styles.engineButtonText, {color: isActive ? '#FFFFFF' : theme.colors.text.secondary}]}>
-                                {t('ttsEngineVits')}
-                              </Text>
-                              {isDownloading && (
-                                <Text style={[styles.engineButtonSubText, {color: 'rgba(255,255,255,0.85)'}]}>
-                                  {vitsProgress}%
-                                </Text>
-                              )}
-                              {ttsEngine === 'vits' && !isDownloading && (
-                                <Text style={[styles.engineButtonSubText, {color: 'rgba(255,255,255,0.75)'}]}>✓</Text>
-                              )}
-                              {!isActive && !isDownloading && getVITSModelConfig(targetLanguage) && (
-                                <Text style={[styles.engineButtonSubText, {color: theme.colors.text.tertiary}]}>
-                                  {getVITSModelConfig(targetLanguage)!.sizeMB}MB
-                                </Text>
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })()}
+                          />
+                        </View>
+                        <Text style={[styles.progressPercent, {color: theme.colors.primary}]}>
+                          {vitsProgress}%
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.modalCancelButton, {borderColor: theme.colors.border.subtle}]}
+                          onPress={handleCancelVitsDownload}
+                          activeOpacity={0.7}>
+                          <Text style={[styles.modalCancelText, {color: theme.colors.text.secondary}]}>
+                            {t('ttsDownloadCancel')}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
+                  </Modal>
                 </>
               )}
             </View>
@@ -1551,46 +1521,44 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
   },
-  engineDescRow: {
-    paddingTop: 4,
-  },
-  engineSelectorGroup: {
-    flexDirection: 'row',
-    gap: 6,
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  engineButton: {
-    flex: 1,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+  modalCard: {
+    width: '100%',
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-    position: 'relative',
+    gap: spacing.md,
   },
-  engineButtonContent: {
-    alignItems: 'center',
-    gap: 2,
+  modalSubText: {
+    fontFamily: typography.fontFamily.body,
+    fontSize: typography.fontSize.sm,
   },
-  engineButtonText: {
+  progressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressPercent: {
     fontFamily: typography.fontFamily.label,
-    fontSize: typography.fontSize.xs,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
-    textAlign: 'center',
   },
-  engineButtonSubText: {
+  modalCancelButton: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  modalCancelText: {
     fontFamily: typography.fontFamily.label,
-    fontSize: 10,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.medium,
-  },
-  engineButtonProgressFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    borderRadius: borderRadius.md,
   },
 });
 

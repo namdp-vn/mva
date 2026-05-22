@@ -3,6 +3,8 @@ import {
   isModelDownloadedByCategory,
   getLocalModelPathByCategory,
   ensureModelByCategory,
+  deleteModelByCategory,
+  deleteIncompleteDownload,
   type DownloadProgress,
 } from 'react-native-sherpa-onnx/download';
 import type {SupportedTargetLanguage} from '../../shared/store/settingsStore';
@@ -49,6 +51,21 @@ export async function downloadVITSModel(
     throw new Error(`No VITS model available for language: ${language}`);
   }
   await ensureModelByCategory(ModelCategory.Tts, config.id, {onProgress, signal});
+}
+
+export async function cancelAndDeleteVITSModel(
+  language: SupportedTargetLanguage,
+  abortController?: AbortController,
+): Promise<void> {
+  abortController?.abort();
+  const config = getVITSModelConfig(language);
+  if (!config) return;
+  try {
+    await deleteModelByCategory(ModelCategory.Tts, config.id);
+  } catch {}
+  try {
+    await deleteIncompleteDownload(ModelCategory.Tts, config.id);
+  } catch {}
 }
 
 export async function getVITSModelPath(
