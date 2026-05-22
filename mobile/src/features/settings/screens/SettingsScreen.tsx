@@ -17,6 +17,7 @@ import {
   SafeAreaView,
   Modal,
   ActivityIndicator,
+  LayoutAnimation,
 } from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
@@ -436,7 +437,10 @@ export function SettingsScreen(): React.JSX.Element {
                 </View>
                 <Switch
                   value={ttsEnabled}
-                  onValueChange={setTtsEnabled}
+                  onValueChange={(v) => {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setTtsEnabled(v);
+                  }}
                   trackColor={{false: theme.colors.border.subtle, true: theme.colors.primary + '80'}}
                   thumbColor={ttsEnabled ? theme.colors.primary : theme.colors.text.tertiary}
                 />
@@ -504,7 +508,7 @@ export function SettingsScreen(): React.JSX.Element {
                       {(() => {
                         const noVitsModel = !getVITSModelConfig(targetLanguage);
                         const isDownloading = vitsStatus === 'downloading';
-                        const isActive = ttsEngine === 'vits' || isDownloading;
+                        const isActive = ttsEngine === 'vits' || isDownloading || vitsRowVisible;
                         return (
                           <TouchableOpacity
                             style={[
