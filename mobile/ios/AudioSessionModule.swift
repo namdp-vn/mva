@@ -8,6 +8,8 @@ class AudioSessionModule: RCTEventEmitter {
 
   private var hasObservers = false
   private var interruptionObserver: NSObjectProtocol?
+  private var routeChangeObserver: NSObjectProtocol?
+  private var isRecordingActive = false
 
   override static func requiresMainQueueSetup() -> Bool {
     return true
@@ -23,6 +25,37 @@ class AudioSessionModule: RCTEventEmitter {
 
   override func stopObserving() {
     hasObservers = false
+  }
+
+  // MARK: - Built-in mic enforcement
+
+  // Re-applies setPreferredInput(builtInMic) on every route change so that
+  // when Bluetooth connects for A2DP output (TTS playback), iOS does not
+  // silently switch the recording input to the Bluetooth HFP mic.
+  private func enforceBuiltInMic() {
+    guard isRecordingActive else { return }
+    let session = AVAudioSession.sharedInstance()
+    guard let inputs = session.availableInputs,
+          let builtIn = inputs.first(where: { $0.portType == .builtInMic }) else { return }
+    try? session.setPreferredInput(builtIn)
+  }
+
+  private func registerRouteChangeObserver() {
+    guard routeChangeObserver == nil else { return }
+    routeChangeObserver = NotificationCenter.default.addObserver(
+      forName: AVAudioSession.routeChangeNotification,
+      object: AVAudioSession.sharedInstance(),
+      queue: .main
+    ) { [weak self] _ in
+      self?.enforceBuiltInMic()
+    }
+  }
+
+  private func unregisterRouteChangeObserver() {
+    if let observer = routeChangeObserver {
+      NotificationCenter.default.removeObserver(observer)
+      routeChangeObserver = nil
+    }
   }
 
   // MARK: - Interruption handling
@@ -55,6 +88,7 @@ class AudioSessionModule: RCTEventEmitter {
 
       do {
         try AVAudioSession.sharedInstance().setActive(true, options: [])
+        enforceBuiltInMic()
         if hasObservers {
           sendEvent(withName: "audioSessionResumed", body: nil)
         }
@@ -68,6 +102,7 @@ class AudioSessionModule: RCTEventEmitter {
     if let observer = interruptionObserver {
       NotificationCenter.default.removeObserver(observer)
     }
+    unregisterRouteChangeObserver()
   }
 
   // MARK: - Bridge methods
@@ -86,14 +121,10 @@ class AudioSessionModule: RCTEventEmitter {
         try session.setPreferredSampleRate(16_000)
         try session.setPreferredIOBufferDuration(0.02)
         try session.setActive(true, options: [])
-        // Force built-in mic even when wired earphones are connected.
-        // iOS auto-routes input to the EarPod mic when earphones are plugged in,
-        // but VAD thresholds are tuned for the iPhone mic capturing room audio.
-        if let inputs = session.availableInputs,
-           let builtIn = inputs.first(where: { $0.portType == .builtInMic }) {
-            try session.setPreferredInput(builtIn)
-        }
+        self.isRecordingActive = true
+        self.enforceBuiltInMic()
         self.registerInterruptionObserver()
+        self.registerRouteChangeObserver()
         resolve(true)
       } catch {
         reject("audio_session_activation_failed", error.localizedDescription, error)
@@ -105,6 +136,8 @@ class AudioSessionModule: RCTEventEmitter {
   func deactivateRecordingSession(_ resolve: @escaping (Any?) -> Void,
                                   reject: @escaping (String?, String?, Error?) -> Void) {
     DispatchQueue.main.async {
+      self.isRecordingActive = false
+      self.unregisterRouteChangeObserver()
       do {
         try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
         resolve(true)
