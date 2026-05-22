@@ -86,6 +86,13 @@ class AudioSessionModule: RCTEventEmitter {
         try session.setPreferredSampleRate(16_000)
         try session.setPreferredIOBufferDuration(0.02)
         try session.setActive(true, options: [])
+        // Force built-in mic even when wired earphones are connected.
+        // iOS auto-routes input to the EarPod mic when earphones are plugged in,
+        // but VAD thresholds are tuned for the iPhone mic capturing room audio.
+        if let inputs = session.availableInputs,
+           let builtIn = inputs.first(where: { $0.portType == .builtInMic }) {
+            try session.setPreferredInput(builtIn)
+        }
         self.registerInterruptionObserver()
         resolve(true)
       } catch {
