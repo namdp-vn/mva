@@ -22,7 +22,6 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
-  AppState,
 } from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
@@ -103,28 +102,6 @@ export function MeetingScreen(): React.JSX.Element {
   const [laneFocusMode, setLaneFocusMode] = useState<LaneFocusMode>('split');
   const [isStopping, setIsStopping] = useState(false);
 
-  // Refs để tránh stale closure trong AppState listener
-  const statusRef = useRef(status);
-  useEffect(() => { statusRef.current = status; }, [status]);
-  const backgroundPausedRef = useRef(false);
-
-  // Pause khi app vào background, resume khi quay lại — tránh iOS interrupt audio session
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'background') {
-        if (statusRef.current === 'recording') {
-          backgroundPausedRef.current = true;
-          pauseMeeting().catch(() => {});
-        }
-      } else if (nextState === 'active') {
-        if (backgroundPausedRef.current && statusRef.current === 'paused') {
-          backgroundPausedRef.current = false;
-          resumeMeeting().catch(() => {});
-        }
-      }
-    });
-    return () => subscription.remove();
-  }, [pauseMeeting, resumeMeeting]);
 
   // Giữ màn hình sáng khi session đang active (recording hoặc paused)
   useEffect(() => {
