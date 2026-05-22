@@ -9,6 +9,9 @@ RCT_EXTERN_METHOD(activateRecordingSession:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(deactivateRecordingSession:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(enforceBuiltInMicInput:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
 RCT_EXTERN_METHOD(activateKeepAwake:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 

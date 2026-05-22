@@ -147,6 +147,18 @@ class AudioSessionModule: RCTEventEmitter {
     }
   }
 
+  // Called from JS after the sherpa-onnx mic stream has fully started.
+  // Re-applies setPreferredInput in case stream setup internally called
+  // setCategory and reset the preferred input to nil.
+  @objc
+  func enforceBuiltInMicInput(_ resolve: @escaping (Any?) -> Void,
+                               reject: @escaping (String?, String?, Error?) -> Void) {
+    DispatchQueue.main.async {
+      self.enforceBuiltInMic()
+      resolve(true)
+    }
+  }
+
   @objc
   func activateKeepAwake(_ resolve: @escaping (Any?) -> Void,
                          reject: @escaping (String?, String?, Error?) -> Void) {

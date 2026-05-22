@@ -92,6 +92,7 @@ const RMS_STATS_WINDOW_MS = 2000;
 type AudioSessionNativeModule = {
   activateRecordingSession?: () => Promise<boolean>;
   deactivateRecordingSession?: () => Promise<boolean>;
+  enforceBuiltInMicInput?: () => Promise<boolean>;
 };
 
 const audioSessionModule =
@@ -554,6 +555,13 @@ export class RealSpeechRecognizer {
     });
 
     await this.mic.start();
+
+    // Re-apply built-in mic preference after stream starts. sherpa-onnx may
+    // call setCategory internally during mic setup, which resets the preferred
+    // input to nil and lets iOS fall back to the headphone/Bluetooth mic.
+    if (Platform.OS === 'ios') {
+      await audioSessionModule?.enforceBuiltInMicInput?.();
+    }
 
     emit({
       type: 'pipeline_status',
