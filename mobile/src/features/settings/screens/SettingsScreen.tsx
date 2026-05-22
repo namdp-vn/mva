@@ -102,6 +102,7 @@ export function SettingsScreen(): React.JSX.Element {
   type VitsStatus = 'unknown' | 'downloaded' | 'not_downloaded' | 'downloading' | 'error';
   const [vitsStatus, setVitsStatus] = useState<VitsStatus>('unknown');
   const [vitsProgress, setVitsProgress] = useState(0);
+  const [vitsRowVisible, setVitsRowVisible] = useState(false);
   const vitsAbortRef = useRef<AbortController | null>(null);
 
   const [sessionDataSizeMB, setSessionDataSizeMB] = useState<number>(0);
@@ -176,6 +177,10 @@ export function SettingsScreen(): React.JSX.Element {
   }, [refreshPackStatuses]);
 
   useEffect(() => {
+    if (ttsEngine === 'vits') setVitsRowVisible(true);
+  }, [ttsEngine]);
+
+  useEffect(() => {
     if (vitsStatus === 'downloading') return;
     setVitsStatus('unknown');
     isVITSModelDownloaded(targetLanguage).then((dl) => {
@@ -184,38 +189,43 @@ export function SettingsScreen(): React.JSX.Element {
   }, [targetLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectEngine = useCallback(async (engine: TtsEngine) => {
-    if (engine === ttsEngine) return;
-    if (engine === 'vits') {
-      const config = getVITSModelConfig(targetLanguage);
-      if (!config) {
-        // JA or unsupported — stay on system
-        return;
-      }
-      const downloaded = await isVITSModelDownloaded(targetLanguage);
-      if (!downloaded) {
-        // Trigger download
-        const controller = new AbortController();
-        vitsAbortRef.current = controller;
-        setVitsStatus('downloading');
-        setVitsProgress(0);
-        try {
-          await downloadVITSModel(targetLanguage, (progress: DownloadProgress) => {
-            setVitsProgress(Math.round(progress.percent));
-          }, controller.signal);
-          setVitsStatus('downloaded');
-          setTtsEngine('vits');
-          ttsService.setEngine('vits');
-        } catch {
-          setVitsStatus('error');
-        } finally {
-          vitsAbortRef.current = null;
-        }
-        return;
-      }
+    if (engine === ttsEngine && vitsStatus === 'downloaded') return;
+    if (engine === 'system') {
+      setTtsEngine('system');
+      ttsService.setEngine('system');
+      setVitsRowVisible(false);
+      return;
     }
-    setTtsEngine(engine);
-    ttsService.setEngine(engine);
-  }, [ttsEngine, targetLanguage, setTtsEngine]);
+    // engine === 'vits'
+    const config = getVITSModelConfig(targetLanguage);
+    if (!config) return; // JA — not supported
+    setVitsRowVisible(true);
+    const downloaded = await isVITSModelDownloaded(targetLanguage);
+    if (downloaded) {
+      setVitsStatus('downloaded');
+      setTtsEngine('vits');
+      ttsService.setEngine('vits');
+      return;
+    }
+    const controller = new AbortController();
+    vitsAbortRef.current = controller;
+    setVitsStatus('downloading');
+    setVitsProgress(0);
+    try {
+      await downloadVITSModel(
+        targetLanguage,
+        (progress: DownloadProgress) => setVitsProgress(Math.round(progress.percent)),
+        controller.signal,
+      );
+      setVitsStatus('downloaded');
+      setTtsEngine('vits');
+      ttsService.setEngine('vits');
+    } catch {
+      setVitsStatus('error');
+    } finally {
+      vitsAbortRef.current = null;
+    }
+  }, [ttsEngine, vitsStatus, targetLanguage, setTtsEngine]);
 
   // Diarization tuning state (dev mode only)
   const [clusterConfig, setClusterConfig] = useState<SpeakerClusterConfig>(() => getSpeakerClusterService().getConfig());
@@ -471,8 +481,9 @@ export function SettingsScreen(): React.JSX.Element {
                     </View>
                     <View style={styles.segmentedControl}>
                       {(['system', 'vits'] as TtsEngine[]).map((eng) => {
-                        const disabled = eng === 'vits' && !getVITSModelConfig(targetLanguage);
-                        const active = ttsEngine === eng;
+                        const noVitsModel = eng === 'vits' && !getVITSModelConfig(targetLanguage);
+                        const isDownloading = eng === 'vits' && vitsStatus === 'downloading';
+                        const active = ttsEngine === eng || isDownloading;
                         return (
                           <TouchableOpacity
                             key={eng}
@@ -482,12 +493,17 @@ export function SettingsScreen(): React.JSX.Element {
                                 backgroundColor: active
                                   ? theme.colors.primary
                                   : theme.colors.surface.secondary,
-                                opacity: disabled ? 0.4 : 1,
+                                opacity: noVitsModel ? 0.4 : 1,
+                                flexDirection: 'row',
+                                gap: 4,
                               },
                             ]}
-                            onPress={() => !disabled && handleSelectEngine(eng)}
-                            disabled={disabled}
+                            onPress={() => !noVitsModel && handleSelectEngine(eng)}
+                            disabled={noVitsModel || isDownloading}
                             activeOpacity={0.8}>
+                            {isDownloading && (
+                              <ActivityIndicator size="small" color="#FFFFFF" style={{marginRight: 2}} />
+                            )}
                             <Text style={[styles.segmentText, {color: active ? '#FFFFFF' : theme.colors.text.secondary}]}>
                               {eng === 'system' ? t('ttsEngineSystem') : t('ttsEngineVits')}
                             </Text>
@@ -506,7 +522,7 @@ export function SettingsScreen(): React.JSX.Element {
                   </View>
 
                   {/* VITS download row */}
-                  {ttsEngine === 'vits' && getVITSModelConfig(targetLanguage) && (
+                  {vitsRowVisible && getVITSModelConfig(targetLanguage) && (
                     <>
                       <View style={[styles.divider, {backgroundColor: theme.colors.border.subtle}]} />
                       <View style={[styles.settingRow, {paddingVertical: 10}]}>
