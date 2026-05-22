@@ -29,6 +29,10 @@ class TTSSpeakerModule: RCTEventEmitter, AVSpeechSynthesizerDelegate {
   override init() {
     super.init()
     synthesizer.delegate = self
+    // Share the app's existing AVAudioSession (.playAndRecord) instead of
+    // letting the synthesizer activate its own session, which would trigger
+    // a Bluetooth route reconfiguration and drop mic frames during recording.
+    synthesizer.usesApplicationAudioSession = true
   }
 
   // MARK: - Bridge methods
