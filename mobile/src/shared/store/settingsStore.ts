@@ -109,7 +109,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'vibevoice-settings-store',
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         developerMode: state.developerMode,
@@ -139,7 +139,8 @@ export const useSettingsStore = create<SettingsState>()(
           diarizationThreshold: upgradedThreshold,
           sttEngine: DEFAULT_STT_ENGINE,
           appLanguage: version < 5 ? detectDeviceLanguage() : ((state as SettingsState).appLanguage ?? detectDeviceLanguage()),
-          ttsEnabled: (state as SettingsState).ttsEnabled ?? false,
+          // Reset ttsEnabled to false on upgrade from v9 (VITS testing left it ON).
+          ttsEnabled: version < 10 ? false : ((state as SettingsState).ttsEnabled ?? false),
           ttsRate: (state as SettingsState).ttsRate ?? 'normal',
         } as SettingsState;
       },
