@@ -56,8 +56,17 @@ class ViSpeechModule: RCTEventEmitter {
                 resolve(false)
                 return
             }
-            AVAudioApplication.requestRecordPermission { granted in
-                resolve(granted)
+            // AVAudioApplication.requestRecordPermission is iOS 17+ only.
+            // Fall back to AVAudioSession on iOS 14–16 so the mic permission
+            // dialog is shown on all supported OS versions.
+            if #available(iOS 17.0, *) {
+                AVAudioApplication.requestRecordPermission { granted in
+                    resolve(granted)
+                }
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    resolve(granted)
+                }
             }
         }
     }
