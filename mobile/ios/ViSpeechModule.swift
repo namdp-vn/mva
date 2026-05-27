@@ -51,22 +51,28 @@ class ViSpeechModule: RCTEventEmitter {
 
     @objc func requestPermission(_ resolve: @escaping RCTPromiseResolveBlock,
                                   reject: @escaping RCTPromiseRejectBlock) {
-        SFSpeechRecognizer.requestAuthorization { authStatus in
-            guard authStatus == .authorized else {
-                resolve(false)
-                return
+        // iOS requires microphone to be granted BEFORE Speech Recognition dialog
+        // will appear. If we call SFSpeechRecognizer.requestAuthorization while
+        // mic is still .notDetermined, iOS silently returns .denied for speech
+        // recognition without showing any dialog.
+        //
+        // Correct order: mic first → speech recognition second.
+
+        let requestMicThenSpeech = {
+            SFSpeechRecognizer.requestAuthorization { authStatus in
+                resolve(authStatus == .authorized)
             }
-            // AVAudioApplication.requestRecordPermission is iOS 17+ only.
-            // Fall back to AVAudioSession on iOS 14–16 so the mic permission
-            // dialog is shown on all supported OS versions.
-            if #available(iOS 17.0, *) {
-                AVAudioApplication.requestRecordPermission { granted in
-                    resolve(granted)
-                }
-            } else {
-                AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                    resolve(granted)
-                }
+        }
+
+        if #available(iOS 17.0, *) {
+            AVAudioApplication.requestRecordPermission { micGranted in
+                guard micGranted else { resolve(false); return }
+                requestMicThenSpeech()
+            }
+        } else {
+            AVAudioSession.sharedInstance().requestRecordPermission { micGranted in
+                guard micGranted else { resolve(false); return }
+                requestMicThenSpeech()
             }
         }
     }
