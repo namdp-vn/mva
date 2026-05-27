@@ -80,6 +80,13 @@ export function MeetingScreen(): React.JSX.Element {
   const [ttsPaused, setTtsPaused] = useState(false);
   const [targetLangModalVisible, setTargetLangModalVisible] = useState(false);
 
+  const handleInputLanguageToggle = useCallback(() => {
+    if (Platform.OS !== 'ios') return;
+    const next: 'auto' | 'vi' = inputLanguage === 'vi' ? 'auto' : 'vi';
+    setInputLanguage(next);
+    if (next === 'vi' && targetLanguage === 'vi') setTargetLanguage('en');
+  }, [inputLanguage, setInputLanguage, targetLanguage, setTargetLanguage]);
+
   const {
     session,
     status,
@@ -394,6 +401,10 @@ export function MeetingScreen(): React.JSX.Element {
             degradedMessage={degradedMessage}
             isActive={isActive}
             isRecording={isRecording}
+            sourceLangFlag={inputLanguage === 'vi' ? '🇻🇳' : '🌐'}
+            targetLangFlag={LANG_FLAGS[targetLanguage] ?? '🌐'}
+            onSourceLangToggle={!isActive ? handleInputLanguageToggle : undefined}
+            onTargetLangPress={!isActive ? () => setTargetLangModalVisible(true) : undefined}
           />
         )}
       </View>
@@ -416,47 +427,6 @@ export function MeetingScreen(): React.JSX.Element {
             styles.footerIdle,
             {backgroundColor: theme.colors.surface.primary},
           ]}>
-          {/* Language pair selector */}
-          <View style={styles.langPairRow}>
-            {/* Source chip — tap to toggle AUTO ↔ VI (iOS only) */}
-            <TouchableOpacity
-              style={[
-                styles.langChip,
-                inputLanguage === 'vi'
-                  ? {backgroundColor: theme.colors.primary + '18', borderColor: theme.colors.primary + '60'}
-                  : {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
-              ]}
-              onPress={() => {
-                if (Platform.OS !== 'ios') return;
-                const next: 'auto' | 'vi' = inputLanguage === 'vi' ? 'auto' : 'vi';
-                setInputLanguage(next);
-                if (next === 'vi' && targetLanguage === 'vi') setTargetLanguage('en');
-              }}
-              activeOpacity={Platform.OS === 'ios' ? 0.7 : 1}>
-              <Text style={styles.langChipFlag}>
-                {inputLanguage === 'vi' ? '🇻🇳' : '🌐'}
-              </Text>
-              {Platform.OS === 'ios' && (
-                <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Arrow */}
-            <Text style={[styles.langPairArrow, {color: theme.colors.text.tertiary}]}>→</Text>
-
-            {/* Target chip — tap to open language selector */}
-            <TouchableOpacity
-              style={[
-                styles.langChip,
-                {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
-              ]}
-              onPress={() => setTargetLangModalVisible(true)}
-              activeOpacity={0.7}>
-              <Text style={styles.langChipFlag}>{LANG_FLAGS[targetLanguage] ?? '🌐'}</Text>
-              <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
-            </TouchableOpacity>
-          </View>
-
           <TouchableOpacity
             style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
             onPress={handlePrimaryButtonPress}
@@ -676,34 +646,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-  },
-  // Language pair selector
-  langPairRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingBottom: 8,
-  },
-  langChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
-  langChipFlag: {
-    fontSize: 26,
-  },
-  langChipCaret: {
-    fontSize: 10,
-  },
-  langPairArrow: {
-    fontSize: 18,
-    fontWeight: '300',
   },
   // Target language modal
   modalOverlay: {

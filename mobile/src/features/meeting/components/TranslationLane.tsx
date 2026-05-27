@@ -23,6 +23,7 @@ import {
   NativeScrollEvent,
   StyleProp,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useTheme} from '../../../shared/hooks/useTheme';
@@ -38,6 +39,14 @@ interface TranslationLaneProps {
   degradedMessage?: string | null;
   isActive: boolean;
   isRecording: boolean;
+  /** Flag emoji for the current source language (🌐 = auto, 🇻🇳 = vi). Omit when meeting is active. */
+  sourceLangFlag?: string;
+  /** Flag emoji for the current target language. Omit when meeting is active. */
+  targetLangFlag?: string;
+  /** Called when user taps the source chip (toggle auto ↔ vi). iOS only. */
+  onSourceLangToggle?: () => void;
+  /** Called when user taps the target chip (open selector). */
+  onTargetLangPress?: () => void;
 }
 
 // =============================================================================
@@ -216,25 +225,64 @@ function DegradedState({translationAvailable = false, message}: {translationAvai
   );
 }
 
-function WaitingState({isRecording}: {isRecording: boolean}): React.JSX.Element {
+function WaitingState({
+  isRecording,
+  sourceLangFlag,
+  targetLangFlag,
+  onSourceLangToggle,
+  onTargetLangPress,
+}: {
+  isRecording: boolean;
+  sourceLangFlag?: string;
+  targetLangFlag?: string;
+  onSourceLangToggle?: () => void;
+  onTargetLangPress?: () => void;
+}): React.JSX.Element {
   const {theme} = useTheme();
   const {t} = useTranslation('meeting');
 
+  // Interactive: only when meeting hasn't started yet (handlers provided)
+  const interactive = !isRecording && !!onSourceLangToggle;
+
   return (
     <View style={styles.waitingContainer}>
-      <View style={[styles.waitingIconWrap, {backgroundColor: theme.colors.surface.secondary}]}>
-        <View style={styles.waitingIconRow}>
-          <View style={[styles.languageChip, {backgroundColor: theme.colors.surface.secondary}]}>
-            <Text style={[styles.languageChipText, {color: theme.colors.text.tertiary}]}>AUTO</Text>
-          </View>
-          <View style={styles.arrowContainer}>
-            <AppIcon name="forward" size={14} color={theme.colors.text.tertiary} />
-          </View>
-          <View style={[styles.languageChip, {backgroundColor: theme.colors.secondary}]}>
-            <Text style={[styles.languageChipText, {color: theme.colors.text.primary}]}>VI</Text>
-          </View>
-        </View>
+      {/* Language pair chips — interactive before meeting, display-only during recording */}
+      <View style={styles.waitingLangRow}>
+        {/* Source chip */}
+        <TouchableOpacity
+          style={[
+            styles.waitingLangChip,
+            sourceLangFlag !== '🌐'
+              ? {backgroundColor: theme.colors.primary + '18', borderColor: theme.colors.primary + '60'}
+              : {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+          ]}
+          onPress={interactive ? onSourceLangToggle : undefined}
+          activeOpacity={(interactive && Platform.OS === 'ios') ? 0.7 : 1}
+          disabled={!interactive || Platform.OS !== 'ios'}>
+          <Text style={styles.waitingLangFlag}>{sourceLangFlag ?? '🌐'}</Text>
+          {interactive && Platform.OS === 'ios' && (
+            <Text style={[styles.waitingLangCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+          )}
+        </TouchableOpacity>
+
+        <Text style={[styles.waitingLangArrow, {color: theme.colors.text.tertiary}]}>→</Text>
+
+        {/* Target chip */}
+        <TouchableOpacity
+          style={[
+            styles.waitingLangChip,
+            {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+          ]}
+          onPress={interactive ? onTargetLangPress : undefined}
+          activeOpacity={interactive ? 0.7 : 1}
+          disabled={!interactive}>
+          <Text style={styles.waitingLangFlag}>{targetLangFlag ?? '🌐'}</Text>
+          {interactive && (
+            <Text style={[styles.waitingLangCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+          )}
+        </TouchableOpacity>
       </View>
+
       {isRecording ? (
         <>
           <Text style={[styles.waitingTitle, {color: theme.colors.text.secondary}]}>
@@ -271,6 +319,10 @@ export function TranslationLane({
   degradedMessage,
   isActive: _isActive,
   isRecording,
+  sourceLangFlag,
+  targetLangFlag,
+  onSourceLangToggle,
+  onTargetLangPress,
 }: TranslationLaneProps): React.JSX.Element {
   const {theme} = useTheme();
   const {t} = useTranslation('meeting');
@@ -400,7 +452,13 @@ export function TranslationLane({
         ) : showTranslationDegradedState ? (
           <DegradedState translationAvailable={translationAvailable} message={degradedMessage} />
         ) : !hasEntries ? (
-          <WaitingState isRecording={isRecording} />
+          <WaitingState
+            isRecording={isRecording}
+            sourceLangFlag={sourceLangFlag}
+            targetLangFlag={targetLangFlag}
+            onSourceLangToggle={onSourceLangToggle}
+            onTargetLangPress={onTargetLangPress}
+          />
         ) : (
           <View style={styles.scrollWrapper}>
             <ScrollView
@@ -677,30 +735,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    gap: 8,
+    gap: 12,
   },
-  waitingIconWrap: {
-    borderRadius: 18,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  waitingIconRow: {
+  waitingLangRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  languageChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  waitingLangChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  languageChipText: {
+  waitingLangFlag: {
+    fontSize: 24,
+  },
+  waitingLangCaret: {
     fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.4,
   },
-  arrowContainer: {
-    opacity: 0.5,
+  waitingLangArrow: {
+    fontSize: 16,
+    fontWeight: '300',
   },
   waitingTitle: {
     fontSize: 13,
