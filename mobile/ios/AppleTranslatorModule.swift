@@ -110,8 +110,10 @@ private final class PersistentTranslationChannel: @unchecked Sendable {
     /// Enqueue a translation request and suspend until the result is ready.
     func translate(texts: [String]) async throws -> [String] {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<[String], Error>) in
+            // `_ =` discards AsyncStream.Continuation.YieldResult so the closure
+            // body returns Void — required by withCheckedThrowingContinuation.
             lock.withLock {
-                streamCont?.yield(Request(texts: texts, continuation: cont))
+                _ = streamCont?.yield(Request(texts: texts, continuation: cont))
             }
         }
     }
