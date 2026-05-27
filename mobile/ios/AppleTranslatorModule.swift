@@ -99,7 +99,7 @@ private final class PersistentTranslationChannel: @unchecked Sendable {
 
     private func _waitReady() async {
         if isReady { return }
-        await withCheckedContinuation { cont in
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             lock.withLock {
                 if _ready { cont.resume() }
                 else { readyWaiters.append(cont) }
@@ -109,7 +109,7 @@ private final class PersistentTranslationChannel: @unchecked Sendable {
 
     /// Enqueue a translation request and suspend until the result is ready.
     func translate(texts: [String]) async throws -> [String] {
-        try await withCheckedThrowingContinuation { cont in
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<[String], Error>) in
             lock.withLock {
                 streamCont?.yield(Request(texts: texts, continuation: cont))
             }
