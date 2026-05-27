@@ -401,10 +401,6 @@ export function MeetingScreen(): React.JSX.Element {
             degradedMessage={degradedMessage}
             isActive={isActive}
             isRecording={isRecording}
-            sourceLangFlag={inputLanguage === 'vi' ? '🇻🇳' : '🌐'}
-            targetLangFlag={LANG_FLAGS[targetLanguage] ?? '🌐'}
-            onSourceLangToggle={!isActive ? handleInputLanguageToggle : undefined}
-            onTargetLangPress={!isActive ? () => setTargetLangModalVisible(true) : undefined}
           />
         )}
       </View>
@@ -427,6 +423,43 @@ export function MeetingScreen(): React.JSX.Element {
             styles.footerIdle,
             {backgroundColor: theme.colors.surface.primary},
           ]}>
+          {/* Language pair selector — always visible before meeting starts */}
+          <View style={styles.langPickerRow}>
+            {/* Source chip: 🌐 auto or 🇻🇳 Vietnamese (iOS only toggle) */}
+            <TouchableOpacity
+              style={[
+                styles.langPickerChip,
+                inputLanguage === 'vi'
+                  ? {backgroundColor: theme.colors.primary + '18', borderColor: theme.colors.primary + '60'}
+                  : {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+              ]}
+              onPress={Platform.OS === 'ios' ? handleInputLanguageToggle : undefined}
+              activeOpacity={Platform.OS === 'ios' ? 0.7 : 1}
+              disabled={Platform.OS !== 'ios'}
+              accessibilityLabel="Toggle input language">
+              <Text style={styles.langPickerFlag}>{inputLanguage === 'vi' ? '🇻🇳' : '🌐'}</Text>
+              {Platform.OS === 'ios' && (
+                <Text style={[styles.langPickerCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+              )}
+            </TouchableOpacity>
+
+            <Text style={[styles.langPickerArrow, {color: theme.colors.text.tertiary}]}>→</Text>
+
+            {/* Target chip */}
+            <TouchableOpacity
+              style={[
+                styles.langPickerChip,
+                {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+              ]}
+              onPress={() => setTargetLangModalVisible(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Select target language">
+              <Text style={styles.langPickerFlag}>{LANG_FLAGS[targetLanguage] ?? '🌐'}</Text>
+              <Text style={[styles.langPickerCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Start / Open Settings button */}
           <TouchableOpacity
             style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
             onPress={handlePrimaryButtonPress}
@@ -633,6 +666,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3,
+  },
+  langPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 2,
+  },
+  langPickerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  langPickerFlag: {
+    fontSize: 26,
+  },
+  langPickerCaret: {
+    fontSize: 10,
+  },
+  langPickerArrow: {
+    fontSize: 18,
+    fontWeight: '300',
   },
   stoppingOverlay: {
     ...StyleSheet.absoluteFill,
