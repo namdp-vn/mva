@@ -32,8 +32,6 @@ import {
   releaseMeetingPipelineInstance,
 } from '../../../native/stt/MeetingPipeline';
 import {getRealSpeechRecognizer, RealSpeechRecognizer} from '../../../native/stt/RealSpeechRecognizer';
-import {getVietnameseSpeechRecognizer, VietnameseSpeechRecognizer} from '../../../native/stt/VietnameseSpeechRecognizer';
-import {useInputLanguage} from '../../../shared/store/settingsStore';
 import {getDiarizationThreshold} from '../../../shared/config/runtimeConfig';
 import {
   getSpeakerEmbeddingService,
@@ -200,11 +198,8 @@ export function useMeetingSession(): UseMeetingSessionReturn {
   const IOS_DEBUG_TRANSLATION_SAFE_MODE = isIosDebugLiveTranslationDisabled();
   const store = useMeetingStore();
   const session = store.session;
-  // Vietnamese input mode — read once per render; drives recognizer selection in startMeeting.
-  const inputLanguage = useInputLanguage();
   const pipelineRef = useRef<MeetingPipeline | null>(null);
   const realRecognizerRef = useRef<RealSpeechRecognizer | null>(null);
-  const viRecognizerRef = useRef<VietnameseSpeechRecognizer | null>(null);
   const stoppingSessionRef = useRef(false);
   const isInBackgroundRef = useRef(false);
   const lastPersistedSessionMetaRef = useRef<string | null>(null);
@@ -1011,7 +1006,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     return () => {
       const currentSession = useMeetingStore.getState().session;
       const recognizer = realRecognizerRef.current ?? realSpeechRecognizer;
-      const viRecognizerCleanup = viRecognizerRef.current;
       const pipeline = pipelineRef.current ?? meetingPipeline;
 
       getOnDeviceTranslator().cancelPending();
@@ -1032,11 +1026,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
             warnLog('[useMeetingSession] Failed to stop recognizer during cleanup:', error);
           }
 
-          try {
-            await viRecognizerCleanup?.stop();
-          } catch (error) {
-            warnLog('[useMeetingSession] Failed to stop VI recognizer during cleanup:', error);
-          }
 
           try {
             await pipeline?.stop();
@@ -1148,12 +1137,9 @@ export function useMeetingSession(): UseMeetingSessionReturn {
 
   const startMeeting = useCallback(
     async (sourceLanguage: SourceLanguage = 'en', targetLanguage: TargetLanguage = 'vi') => {
-      // When Vietnamese input is active, override sourceLanguage so the session
-      // metadata and translation pipeline receive the correct value.
-      const effectiveSourceLanguage: SourceLanguage =
-        inputLanguage === 'vi' ? 'vi' : sourceLanguage;
+      const effectiveSourceLanguage: SourceLanguage = sourceLanguage;
 
-      console.warn('[useMeetingSession] startMeeting: entered', {effectiveSourceLanguage, targetLanguage, inputLanguage});
+      console.warn('[useMeetingSession] startMeeting: entered', {effectiveSourceLanguage, targetLanguage});
       const persistence = getPersistenceService();
       const translator = getOnDeviceTranslator();
       translator.cancelPending();
@@ -1183,37 +1169,20 @@ export function useMeetingSession(): UseMeetingSessionReturn {
           warnLog('[useMeetingSession] Speaker embedding init failed; continuing without diarization.', error);
         });
       }
-      // Select recognizer based on input language setting.
+      // SenseVoice recognizer — EN / JA / KO / ZH auto-detection.
       if (Platform.OS === 'ios' || Platform.OS === 'android') {
-        if (inputLanguage === 'vi' && Platform.OS === 'ios') {
-          // Vietnamese path — SFSpeechRecognizer via ViSpeechModule (iOS only).
-          try {
-            console.warn('[useMeetingSession] vi recognizer start: entering', {sessionId});
-            const viRecognizer = getVietnameseSpeechRecognizer();
-            viRecognizerRef.current = viRecognizer;
-            await viRecognizer.start(sessionId, handleIncomingPipelineEvent);
-            console.warn('[useMeetingSession] vi recognizer start: success', {sessionId});
-            startedWithRealRecognizer = true;
-          } catch (error) {
-            recognizerStartError = error;
-            console.warn('[useMeetingSession] vi recognizer start: failed', {sessionId, error});
-            warnLog('[useMeetingSession] Vietnamese recognizer failed to start:', error);
-          }
-        } else {
-          // Default path — SenseVoice (EN / JA / KO / ZH).
-          try {
-            console.warn('[useMeetingSession] real recognizer start: entering', {platform: Platform.OS, sessionId});
-            realSpeechRecognizer = getRealSpeechRecognizer();
-            console.warn('[useMeetingSession] real recognizer start: instance ready', {hasInstance: !!realSpeechRecognizer});
-            realRecognizerRef.current = realSpeechRecognizer;
-            await realSpeechRecognizer.start(sessionId, handleIncomingPipelineEvent, effectiveSourceLanguage);
-            console.warn('[useMeetingSession] real recognizer start: success', {sessionId});
-            startedWithRealRecognizer = true;
-          } catch (error) {
-            recognizerStartError = error;
-            console.warn('[useMeetingSession] real recognizer start: failed', {sessionId, error});
-            warnLog('[useMeetingSession] Real recognizer failed to start:', error);
-          }
+        try {
+          console.warn('[useMeetingSession] real recognizer start: entering', {platform: Platform.OS, sessionId});
+          realSpeechRecognizer = getRealSpeechRecognizer();
+          console.warn('[useMeetingSession] real recognizer start: instance ready', {hasInstance: !!realSpeechRecognizer});
+          realRecognizerRef.current = realSpeechRecognizer;
+          await realSpeechRecognizer.start(sessionId, handleIncomingPipelineEvent, effectiveSourceLanguage);
+          console.warn('[useMeetingSession] real recognizer start: success', {sessionId});
+          startedWithRealRecognizer = true;
+        } catch (error) {
+          recognizerStartError = error;
+          console.warn('[useMeetingSession] real recognizer start: failed', {sessionId, error});
+          warnLog('[useMeetingSession] Real recognizer failed to start:', error);
         }
       }
 
@@ -1260,24 +1229,20 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       await persistence.saveSession(sessionData);
       debugLog('[useMeetingSession] Meeting started:', currentSession.id);
     },
-    [IOS_DEBUG_TRANSLATION_SAFE_MODE, LIVE_SPEAKER_ASSIGNMENT_ENABLED, handleIncomingPipelineEvent, store, inputLanguage]
+    [IOS_DEBUG_TRANSLATION_SAFE_MODE, LIVE_SPEAKER_ASSIGNMENT_ENABLED, handleIncomingPipelineEvent, store]
   );
 
   const pauseMeeting = useCallback(async () => {
     const recognizer = realRecognizerRef.current;
-    const viRecognizer = viRecognizerRef.current;
-    if (!recognizer && !viRecognizer) return;
+    if (!recognizer) return;
     store.pauseSession();
-    if (recognizer) await recognizer.pause();
-    if (viRecognizer) await viRecognizer.pause();
+    await recognizer.pause();
   }, [store]);
 
   const resumeMeeting = useCallback(async () => {
     const recognizer = realRecognizerRef.current;
-    const viRecognizer = viRecognizerRef.current;
-    if (!recognizer && !viRecognizer) return;
-    if (recognizer) await recognizer.resume();
-    if (viRecognizer) await viRecognizer.resume();
+    if (!recognizer) return;
+    await recognizer.resume();
     store.resumeSession();
   }, [store]);
 
@@ -1289,10 +1254,7 @@ export function useMeetingSession(): UseMeetingSessionReturn {
     translator.cancelPending();
 
     const recognizer = realRecognizerRef.current ?? realSpeechRecognizer;
-    const viRecognizer = viRecognizerRef.current;
-    // Audio samples for diarization: only RealSpeechRecognizer provides these;
-    // VietnameseSpeechRecognizer returns [] (diarization not supported for VI).
-    const sessionSamples = recognizer?.getSessionAudioBuffer() ?? viRecognizer?.getSessionAudioBuffer() ?? [];
+    const sessionSamples = recognizer?.getSessionAudioBuffer() ?? [];
 
     if (recognizer) {
       try {
@@ -1300,14 +1262,6 @@ export function useMeetingSession(): UseMeetingSessionReturn {
       } catch (error) {
         errorLog('[useMeetingSession] Failed to stop real recognizer:', error);
       }
-    }
-    if (viRecognizer) {
-      try {
-        await viRecognizer.stop();
-      } catch (error) {
-        errorLog('[useMeetingSession] Failed to stop Vietnamese recognizer:', error);
-      }
-      viRecognizerRef.current = null;
     }
 
     const pipeline = pipelineRef.current ?? meetingPipeline;
