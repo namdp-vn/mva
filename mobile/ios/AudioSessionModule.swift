@@ -11,6 +11,13 @@ class AudioSessionModule: RCTEventEmitter {
   private var routeChangeObserver: NSObjectProtocol?
   private var isRecordingActive = false
 
+  /// Background task token held for the duration of a recording session.
+  /// With `audio` UIBackgroundMode the audio capture itself runs indefinitely,
+  /// but background tasks additionally protect non-audio CPU work
+  /// (translation queue, Core Data persistence) from being killed during
+  /// brief background-time overruns.
+  private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+
   override static func requiresMainQueueSetup() -> Bool {
     return true
   }
@@ -98,11 +105,34 @@ class AudioSessionModule: RCTEventEmitter {
     }
   }
 
+  // MARK: - Background task management
+
+  /// Begins a UIBackgroundTask so non-audio CPU work (translation, DB writes)
+  /// is protected when the app enters the background during an active session.
+  /// With the `audio` UIBackgroundMode the audio capture itself never expires,
+  /// but the background task gives ancillary processing a guaranteed time slot.
+  private func beginBackgroundRecordingTask() {
+    guard backgroundTaskID == .invalid else { return }
+    backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "MVARecordingSession") {
+      // Expiry handler — iOS is about to kill the task.
+      // The audio session stays alive via UIBackgroundModes:audio, but we
+      // clean up the task token so we can re-request one if needed.
+      self.endBackgroundRecordingTask()
+    }
+  }
+
+  private func endBackgroundRecordingTask() {
+    guard backgroundTaskID != .invalid else { return }
+    UIApplication.shared.endBackgroundTask(backgroundTaskID)
+    backgroundTaskID = .invalid
+  }
+
   deinit {
     if let observer = interruptionObserver {
       NotificationCenter.default.removeObserver(observer)
     }
     unregisterRouteChangeObserver()
+    endBackgroundRecordingTask()
   }
 
   // MARK: - Bridge methods
@@ -125,6 +155,7 @@ class AudioSessionModule: RCTEventEmitter {
         self.enforceBuiltInMic()
         self.registerInterruptionObserver()
         self.registerRouteChangeObserver()
+        self.beginBackgroundRecordingTask()
         resolve(true)
       } catch {
         reject("audio_session_activation_failed", error.localizedDescription, error)
@@ -138,6 +169,7 @@ class AudioSessionModule: RCTEventEmitter {
     DispatchQueue.main.async {
       self.isRecordingActive = false
       self.unregisterRouteChangeObserver()
+      self.endBackgroundRecordingTask()
       do {
         try AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
         resolve(true)
