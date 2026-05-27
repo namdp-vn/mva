@@ -72,7 +72,8 @@
     "tabMeetings": "会議",
     "tabLive": "ライブ",
     "tabNetwork": "ネットワーク",
-    "ttsToggleLabel": "読み上げ切り替え"
+    "ttsToggleLabel": "読み上げ切り替え",
+    "langSelectTarget": "翻訳言語"
   },
   "settings": {
     "title": "設定",

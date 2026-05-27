@@ -22,6 +22,7 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {useNavigation} from '../../../app/navigation/router';
@@ -30,7 +31,7 @@ import {useTheme} from '../../../shared/hooks/useTheme';
 import {RootStackParamList} from '../../../app/navigation/router';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
 import {useBootstrapStore, useModelState, usePrewarmState, useTranslatorModelState} from '../../../shared/store';
-import {useDeveloperMode, useTargetLanguage, useTtsEnabled} from '../../../shared/store/settingsStore';
+import {useDeveloperMode, useTargetLanguage, useTtsEnabled, useInputLanguage, useSettingsStore, TARGET_LANGUAGE_OPTIONS, getLanguageOption} from '../../../shared/store/settingsStore';
 import {ttsService} from '../../../services/tts/TTSService';
 import {useTTSSpeaker} from '../hooks/useTTSSpeaker';
 import {MeetingStatusBar} from '../components/MeetingStatusBar';
@@ -48,6 +49,13 @@ import {useDeveloperMetrics} from '../store/developerMetricsStore';
 type MeetingNavigationProp = StackNavigationProp<RootStackParamList, 'Meeting'>;
 type LaneFocusMode = 'original' | 'split' | 'translation';
 
+const LANG_FLAGS: Record<string, string> = {
+  en: '🇬🇧',
+  vi: '🇻🇳',
+  zh: '🇨🇳',
+  ko: '🇰🇷',
+  ja: '🇯🇵',
+};
 
 const APP_NAME = 'Executive MVA';
 
@@ -67,7 +75,10 @@ export function MeetingScreen(): React.JSX.Element {
   const {speakerDebug} = useDeveloperMetrics();
   const targetLanguage = useTargetLanguage();
   const ttsEnabled = useTtsEnabled();
+  const inputLanguage = useInputLanguage();
+  const {setInputLanguage, setTargetLanguage} = useSettingsStore();
   const [ttsPaused, setTtsPaused] = useState(false);
+  const [targetLangModalVisible, setTargetLangModalVisible] = useState(false);
 
   const {
     session,
@@ -405,6 +416,57 @@ export function MeetingScreen(): React.JSX.Element {
             styles.footerIdle,
             {backgroundColor: theme.colors.surface.primary},
           ]}>
+          {/* Language pair selector */}
+          <View style={styles.langPairRow}>
+            {/* Source chip — tap to toggle AUTO ↔ VI (iOS only) */}
+            <TouchableOpacity
+              style={[
+                styles.langChip,
+                inputLanguage === 'vi'
+                  ? {backgroundColor: theme.colors.primary + '18', borderColor: theme.colors.primary + '60'}
+                  : {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+              ]}
+              onPress={() => {
+                if (Platform.OS !== 'ios') return;
+                const next: 'auto' | 'vi' = inputLanguage === 'vi' ? 'auto' : 'vi';
+                setInputLanguage(next);
+                if (next === 'vi' && targetLanguage === 'vi') setTargetLanguage('en');
+              }}
+              activeOpacity={Platform.OS === 'ios' ? 0.7 : 1}>
+              <Text style={styles.langChipFlag}>
+                {inputLanguage === 'vi' ? '🇻🇳' : '🌐'}
+              </Text>
+              <Text
+                style={[
+                  styles.langChipLabel,
+                  {color: inputLanguage === 'vi' ? theme.colors.primary : theme.colors.text.secondary},
+                ]}>
+                {inputLanguage === 'vi' ? 'Tiếng Việt' : 'Auto'}
+              </Text>
+              {Platform.OS === 'ios' && (
+                <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Arrow */}
+            <Text style={[styles.langPairArrow, {color: theme.colors.text.tertiary}]}>→</Text>
+
+            {/* Target chip — tap to open language selector */}
+            <TouchableOpacity
+              style={[
+                styles.langChip,
+                {backgroundColor: theme.colors.surface.secondary, borderColor: theme.colors.border.subtle},
+              ]}
+              onPress={() => setTargetLangModalVisible(true)}
+              activeOpacity={0.7}>
+              <Text style={styles.langChipFlag}>{LANG_FLAGS[targetLanguage] ?? '🌐'}</Text>
+              <Text style={[styles.langChipLabel, {color: theme.colors.text.secondary}]}>
+                {getLanguageOption(targetLanguage).nativeLabel}
+              </Text>
+              <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[styles.primaryButton, {backgroundColor: theme.colors.primary}]}
             onPress={handlePrimaryButtonPress}
@@ -425,6 +487,54 @@ export function MeetingScreen(): React.JSX.Element {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Target Language Selector Modal */}
+      <Modal
+        visible={targetLangModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTargetLangModalVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTargetLangModalVisible(false)}>
+          <View style={[styles.modalCard, {backgroundColor: theme.colors.surface.primary}]}>
+            <Text style={[styles.modalTitle, {color: theme.colors.text.primary}]}>
+              {t('langSelectTarget')}
+            </Text>
+            {TARGET_LANGUAGE_OPTIONS.map((opt, index) => (
+              <TouchableOpacity
+                key={opt.code}
+                style={[
+                  styles.modalOption,
+                  index < TARGET_LANGUAGE_OPTIONS.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.colors.border.subtle,
+                  },
+                  targetLanguage === opt.code && {backgroundColor: theme.colors.surface.container},
+                ]}
+                onPress={() => {
+                  setTargetLanguage(opt.code);
+                  setTargetLangModalVisible(false);
+                }}
+                activeOpacity={0.7}>
+                <Text style={styles.modalOptionFlag}>{LANG_FLAGS[opt.code] ?? '🌐'}</Text>
+                <View style={styles.modalOptionInfo}>
+                  <Text style={[styles.modalOptionNative, {color: theme.colors.text.primary}]}>
+                    {opt.nativeLabel}
+                  </Text>
+                  <Text style={[styles.modalOptionLang, {color: theme.colors.text.tertiary}]}>
+                    {opt.label}
+                  </Text>
+                </View>
+                {targetLanguage === opt.code && (
+                  <AppIcon name="check-circle" size={20} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
     {!isLiveWorkspace && <AppBottomNav activeTab="live" />}
     </View>
@@ -576,6 +686,83 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+  },
+  // Language pair selector
+  langPairRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingBottom: 8,
+  },
+  langChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  langChipFlag: {
+    fontSize: 20,
+  },
+  langChipLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  langChipCaret: {
+    fontSize: 10,
+  },
+  langPairArrow: {
+    fontSize: 18,
+    fontWeight: '300',
+  },
+  // Target language modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    gap: 12,
+  },
+  modalOptionFlag: {
+    fontSize: 24,
+  },
+  modalOptionInfo: {
+    flex: 1,
+  },
+  modalOptionNative: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalOptionLang: {
+    fontSize: 12,
+    marginTop: 1,
   },
 });
 

@@ -72,7 +72,8 @@
     "tabMeetings": "Meetings",
     "tabLive": "Live",
     "tabNetwork": "Network",
-    "ttsToggleLabel": "Toggle read aloud"
+    "ttsToggleLabel": "Toggle read aloud",
+    "langSelectTarget": "Translation language"
   },
   "settings": {
     "title": "Settings",
