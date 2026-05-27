@@ -51,28 +51,38 @@ class ViSpeechModule: RCTEventEmitter {
 
     @objc func requestPermission(_ resolve: @escaping RCTPromiseResolveBlock,
                                   reject: @escaping RCTPromiseRejectBlock) {
-        // iOS requires microphone to be granted BEFORE Speech Recognition dialog
-        // will appear. If we call SFSpeechRecognizer.requestAuthorization while
-        // mic is still .notDetermined, iOS silently returns .denied for speech
-        // recognition without showing any dialog.
+        // Apple docs: SFSpeechRecognizer.requestAuthorization must be called on
+        // the main thread for the system dialog to appear.
         //
-        // Correct order: mic first → speech recognition second.
-
-        let requestMicThenSpeech = {
-            SFSpeechRecognizer.requestAuthorization { authStatus in
-                resolve(authStatus == .authorized)
+        // Order matters: request Microphone FIRST, then Speech Recognition.
+        // If SFSpeechRecognizer.requestAuthorization is called while the mic is
+        // still .notDetermined, iOS silently returns .denied for speech
+        // recognition without showing any dialog.
+        DispatchQueue.main.async {
+            let doRequestMic = { (completion: @escaping (Bool) -> Void) in
+                if #available(iOS 17.0, *) {
+                    AVAudioApplication.requestRecordPermission { completion($0) }
+                } else {
+                    AVAudioSession.sharedInstance().requestRecordPermission { completion($0) }
+                }
             }
-        }
 
-        if #available(iOS 17.0, *) {
-            AVAudioApplication.requestRecordPermission { micGranted in
-                guard micGranted else { resolve(false); return }
-                requestMicThenSpeech()
-            }
-        } else {
-            AVAudioSession.sharedInstance().requestRecordPermission { micGranted in
-                guard micGranted else { resolve(false); return }
-                requestMicThenSpeech()
+            doRequestMic { micGranted in
+                guard micGranted else {
+                    reject("MIC_PERMISSION_DENIED",
+                           "Microphone permission denied. Go to Settings → Privacy → Microphone to enable.",
+                           nil)
+                    return
+                }
+                SFSpeechRecognizer.requestAuthorization { authStatus in
+                    if authStatus == .authorized {
+                        resolve(true)
+                    } else {
+                        reject("SPEECH_PERMISSION_DENIED",
+                               "Speech Recognition permission denied. Go to Settings → Privacy → Speech Recognition to enable.",
+                               nil)
+                    }
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 import type {EmitterSubscription} from 'react-native';
-import {NativeModules, Platform} from 'react-native';
+import {Alert, Linking, NativeModules, Platform} from 'react-native';
 import type {SessionId, UtteranceId} from '../../shared/types/common';
 import type {MeetingPipelineEvent} from '../../shared/types/meeting';
 import {warnLog} from '../../shared/utils/logger';
@@ -48,10 +48,19 @@ export class VietnameseSpeechRecognizer {
     this.emitFn = emit;
     this.paused = false;
 
-    const granted = await requestViPermission();
-    if (!granted) {
+    const permResult = await requestViPermission();
+    if (!permResult.granted) {
+      const isMic = permResult.reason === 'MIC_PERMISSION_DENIED';
+      const title = isMic ? 'Cần quyền Microphone' : 'Cần quyền Speech Recognition';
+      const message = isMic
+        ? 'Ứng dụng cần quyền Microphone để nhận diện tiếng Việt.\n\nVào Settings → Privacy & Security → Microphone → bật cho ứng dụng này.'
+        : 'Ứng dụng cần quyền Speech Recognition để nhận diện tiếng Việt.\n\nVào Settings → Privacy & Security → Speech Recognition → bật cho ứng dụng này.';
+      Alert.alert(title, message, [
+        {text: 'Huỷ', style: 'cancel'},
+        {text: 'Mở Settings', onPress: () => Linking.openSettings()},
+      ]);
       throw new Error(
-        'VietnameseSpeechRecognizer: microphone or speech recognition permission denied.',
+        `VietnameseSpeechRecognizer: permission denied (${permResult.reason})`,
       );
     }
 
