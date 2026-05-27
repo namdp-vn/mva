@@ -31,7 +31,7 @@ import {useTheme} from '../../../shared/hooks/useTheme';
 import {RootStackParamList} from '../../../app/navigation/router';
 import {AppBottomNav, AppIcon} from '../../../shared/components/ui';
 import {useBootstrapStore, useModelState, usePrewarmState, useTranslatorModelState} from '../../../shared/store';
-import {useDeveloperMode, useTargetLanguage, useTtsEnabled, useInputLanguage, useSettingsStore, TARGET_LANGUAGE_OPTIONS, getLanguageOption} from '../../../shared/store/settingsStore';
+import {useDeveloperMode, useTargetLanguage, useTtsEnabled, useInputLanguage, useSettingsStore, TARGET_LANGUAGE_OPTIONS} from '../../../shared/store/settingsStore';
 import {ttsService} from '../../../services/tts/TTSService';
 import {useTTSSpeaker} from '../hooks/useTTSSpeaker';
 import {MeetingStatusBar} from '../components/MeetingStatusBar';
@@ -436,13 +436,6 @@ export function MeetingScreen(): React.JSX.Element {
               <Text style={styles.langChipFlag}>
                 {inputLanguage === 'vi' ? '🇻🇳' : '🌐'}
               </Text>
-              <Text
-                style={[
-                  styles.langChipLabel,
-                  {color: inputLanguage === 'vi' ? theme.colors.primary : theme.colors.text.secondary},
-                ]}>
-                {inputLanguage === 'vi' ? 'Tiếng Việt' : 'Auto'}
-              </Text>
               {Platform.OS === 'ios' && (
                 <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
               )}
@@ -460,9 +453,6 @@ export function MeetingScreen(): React.JSX.Element {
               onPress={() => setTargetLangModalVisible(true)}
               activeOpacity={0.7}>
               <Text style={styles.langChipFlag}>{LANG_FLAGS[targetLanguage] ?? '🌐'}</Text>
-              <Text style={[styles.langChipLabel, {color: theme.colors.text.secondary}]}>
-                {getLanguageOption(targetLanguage).nativeLabel}
-              </Text>
               <Text style={[styles.langChipCaret, {color: theme.colors.text.tertiary}]}>▾</Text>
             </TouchableOpacity>
           </View>
@@ -692,27 +682,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 12,
     paddingBottom: 8,
   },
   langChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1,
-    minWidth: 120,
     justifyContent: 'center',
   },
   langChipFlag: {
-    fontSize: 20,
-  },
-  langChipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
+    fontSize: 26,
   },
   langChipCaret: {
     fontSize: 10,
